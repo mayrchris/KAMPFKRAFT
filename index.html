@@ -1,464 +1,1904 @@
-KAMPFKRAFT – lokaler Server mit PDF-Export
-Starten: python3 server.py
-Dann: http://localhost:8080
-"""
-import json, os, io
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KAMPFKRAFT – Bodyweight Training</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0e0e0e; --surface:#161616; --surface2:#1e1e1e; --border:#2a2a2a;
+  --text:#f0ede8; --muted:#7a7670; --accent:#e8d5b0; --gold:#c4a96d;
+  --red:#c0392b; --green:#4a7c59;
+  --ff-display:'Syne',sans-serif; --ff-body:'DM Sans',sans-serif; --ff-mono:'DM Mono',monospace;
+  --r:4px; --tr:200ms ease;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--ff-body);font-size:15px;line-height:1.6;min-height:100vh}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
-# ── Color palette ──────────────────────────────────────────────
-BG       = colors.HexColor('#0e0e0e')
-SURFACE  = colors.HexColor('#161616')
-SURFACE2 = colors.HexColor('#1e1e1e')
-BORDER   = colors.HexColor('#2a2a2a')
-TEXT     = colors.HexColor('#f0ede8')
-MUTED    = colors.HexColor('#7a7670')
-GOLD     = colors.HexColor('#c4a96d')
-ACCENT   = colors.HexColor('#e8d5b0')
-RED      = colors.HexColor('#c0392b')
-GREEN    = colors.HexColor('#4a7c59')
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(14,14,14,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-logo{font-family:var(--ff-display);font-weight:800;font-size:1.05rem;letter-spacing:.08em;color:var(--gold);text-decoration:none}
+.nav-links{display:flex;gap:.2rem;flex-wrap:wrap}
+.nav-links button{background:none;border:none;cursor:pointer;color:var(--muted);font-family:var(--ff-body);font-size:.82rem;padding:.38rem .72rem;border-radius:var(--r);transition:color var(--tr),background var(--tr)}
+.nav-links button:hover,.nav-links button.active{color:var(--text);background:var(--surface2)}
 
-W, H = A4  # 595 x 842 pt
+/* PAGES */
+.page{display:none;padding-top:56px;min-height:100vh}
+.page.active{display:block;animation:fadeUp .45s ease both}
 
-# ── Day names ──────────────────────────────────────────────────
-DAY_NAMES = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag']
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:.45rem;padding:.62rem 1.35rem;border-radius:var(--r);font-family:var(--ff-body);font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all var(--tr);text-decoration:none}
+.btn-primary{background:var(--gold);color:var(--bg)}.btn-primary:hover{background:var(--accent)}
+.btn-outline{background:none;color:var(--text);border:1px solid var(--border)}.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.38rem .85rem;font-size:.78rem}
+.btn-danger{background:var(--red);color:#fff}.btn-danger:hover{opacity:.85}
 
-def level_label(l):
-    return {'beginner':'Anfänger','intermediate':'Fortgeschritten','advanced':'Profi'}.get(l, l)
+/* HERO */
+.hero{padding:5rem 2rem 3rem;max-width:880px;margin:0 auto}
+.hero-tag{font-family:var(--ff-mono);font-size:.7rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:1.4rem;display:flex;align-items:center;gap:.7rem}
+.hero-tag::before{content:'';display:block;width:22px;height:1px;background:var(--muted)}
+.hero h1{font-family:var(--ff-display);font-weight:800;font-size:clamp(2.4rem,5.5vw,4.2rem);line-height:1.05;letter-spacing:-.02em;margin-bottom:1.4rem}
+.hero h1 span{color:var(--gold)}
+.hero p{color:var(--muted);max-width:460px;font-size:.98rem;line-height:1.75;margin-bottom:2.2rem}
+.hero-actions{display:flex;gap:.7rem;flex-wrap:wrap}
+.stats-row{display:flex;gap:2.2rem;flex-wrap:wrap;padding:2rem 2rem 3rem;max-width:880px;margin:0 auto;border-top:1px solid var(--border)}
+.stat-num{font-family:var(--ff-display);font-weight:700;font-size:1.5rem;color:var(--gold)}
+.stat-label{font-size:.75rem;color:var(--muted);letter-spacing:.05em}
 
-def focus_label(f):
-    return {'mma':'MMA / Grappling','boxing':'Boxen / Kickboxen','bjj':'BJJ / Ringen','mixed':'Gemischt'}.get(f, f)
+/* SECTION */
+.section{max-width:1100px;margin:0 auto;padding:2rem 2rem 4rem}
+.section-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.75rem;padding-bottom:1rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:.7rem}
+.section-title{font-family:var(--ff-display);font-weight:700;font-size:1.35rem;letter-spacing:-.01em}
 
-def cat_label(c):
-    return {'strength':'Kraft','conditioning':'Kondition','mobility':'Mobilität'}.get(c, c)
+/* FILTERS */
+.filter-bar{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.6rem}
+.filter-btn{background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--ff-mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;padding:.32rem .7rem;border-radius:2px;cursor:pointer;transition:all var(--tr)}
+.filter-btn:hover,.filter-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(196,169,109,.07)}
 
-# ── Styles ─────────────────────────────────────────────────────
-def make_styles():
-    base = getSampleStyleSheet()
-    s = {}
-    s['cover_title'] = ParagraphStyle('cover_title', fontSize=38, textColor=GOLD,
-        fontName='Helvetica-Bold', spaceAfter=8, leading=44, alignment=TA_LEFT)
-    s['cover_sub'] = ParagraphStyle('cover_sub', fontSize=12, textColor=MUTED,
-        fontName='Helvetica', spaceAfter=6, leading=16, alignment=TA_LEFT)
-    s['cover_meta'] = ParagraphStyle('cover_meta', fontSize=9, textColor=MUTED,
-        fontName='Courier', spaceAfter=4, leading=13, alignment=TA_LEFT)
+/* EXERCISE GRID */
+.exercise-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:1px;background:var(--border);border:1px solid var(--border)}
+.exercise-card{background:var(--surface);cursor:pointer;transition:background var(--tr);position:relative;overflow:hidden}
+.exercise-card:hover{background:var(--surface2)}
+.exercise-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--gold);transform:scaleY(0);transform-origin:bottom;transition:transform var(--tr)}
+.exercise-card:hover::before{transform:scaleY(1)}
 
-    s['section_header'] = ParagraphStyle('section_header', fontSize=7, textColor=GOLD,
-        fontName='Courier-Bold', spaceAfter=6, spaceBefore=18, leading=11,
-        alignment=TA_LEFT, letterSpacing=2)
-    s['ex_title'] = ParagraphStyle('ex_title', fontSize=13, textColor=TEXT,
-        fontName='Helvetica-Bold', spaceAfter=4, spaceBefore=2, leading=16)
-    s['ex_desc'] = ParagraphStyle('ex_desc', fontSize=9, textColor=MUTED,
-        fontName='Helvetica', spaceAfter=4, leading=13)
-    s['ex_tip'] = ParagraphStyle('ex_tip', fontSize=9, textColor=GOLD,
-        fontName='Helvetica-Oblique', spaceAfter=6, leading=13)
-    s['step'] = ParagraphStyle('step', fontSize=9, textColor=TEXT,
-        fontName='Helvetica', spaceAfter=3, leading=13, leftIndent=16)
-    s['step_num'] = ParagraphStyle('step_num', fontSize=9, textColor=GOLD,
-        fontName='Courier-Bold', spaceAfter=3, leading=13)
-    s['label'] = ParagraphStyle('label', fontSize=7, textColor=MUTED,
-        fontName='Courier', spaceAfter=2, leading=11)
-    s['body'] = ParagraphStyle('body', fontSize=9, textColor=TEXT,
-        fontName='Helvetica', spaceAfter=4, leading=14)
-    s['day_label'] = ParagraphStyle('day_label', fontSize=8, textColor=MUTED,
-        fontName='Courier', leading=11)
-    s['day_rest'] = ParagraphStyle('day_rest', fontSize=8, textColor=MUTED,
-        fontName='Helvetica-Oblique', leading=11)
-    s['tip_item'] = ParagraphStyle('tip_item', fontSize=9, textColor=TEXT,
-        fontName='Helvetica', spaceAfter=4, leading=13, leftIndent=14)
-    s['phase_title'] = ParagraphStyle('phase_title', fontSize=9, textColor=ACCENT,
-        fontName='Helvetica-Bold', leading=13)
-    s['phase_body'] = ParagraphStyle('phase_body', fontSize=8, textColor=MUTED,
-        fontName='Helvetica', leading=12)
-    return s
+/* SVG ILLUSTRATION AREA */
+.card-illustration{width:100%;height:160px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.card-illustration svg{width:100%;height:100%}
+.card-body{padding:1.2rem}
+.card-badges{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.6rem}
+.badge{font-family:var(--ff-mono);font-size:.63rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .45rem;border-radius:2px}
+.badge-beginner{background:rgba(74,124,89,.2);color:#6dbf84}
+.badge-intermediate{background:rgba(196,169,109,.15);color:var(--gold)}
+.badge-advanced{background:rgba(192,57,43,.15);color:#e07060}
+.badge-sport{background:rgba(240,237,232,.07);color:var(--muted)}
+.card-title{font-family:var(--ff-display);font-weight:700;font-size:.98rem;margin-bottom:.35rem}
+.card-desc{font-size:.8rem;color:var(--muted);line-height:1.5}
+.card-meta{margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--border);display:flex;gap:1.2rem}
+.card-meta-item{font-family:var(--ff-mono);font-size:.68rem;color:var(--muted)}
+.card-meta-item span{color:var(--text);display:block;font-size:.78rem}
+.add-btn{margin-top:.9rem;width:100%;background:none;border:1px dashed var(--border);color:var(--muted);font-family:var(--ff-mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;padding:.48rem;cursor:pointer;border-radius:var(--r);transition:all var(--tr)}
+.add-btn:hover{border-color:var(--gold);color:var(--gold)}
 
-# ── Build schedule ─────────────────────────────────────────────
-def build_schedule(exercises, days, duration):
-    n = len(exercises)
-    gaps = max(1, 7 // days)
-    train_days = [i * gaps for i in range(days)][:days]
-    per_day = max(1, -(-n // days))  # ceil division
-    day_groups = [exercises[i*per_day:(i+1)*per_day] for i in range(days)]
-    return train_days, day_groups
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.88);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex;animation:fadeIn .2s ease}
+.modal{background:var(--surface);border:1px solid var(--border);max-width:620px;width:100%;max-height:88vh;overflow-y:auto;border-radius:var(--r);animation:slideUp .25s ease}
+.modal-illo{width:100%;height:200px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.modal-illo svg{width:100%;height:100%}
+.modal-header{padding:1.25rem 1.5rem .75rem;display:flex;justify-content:space-between;align-items:flex-start}
+.modal-header h2{font-family:var(--ff-display);font-weight:700;font-size:1.2rem}
+.modal-close{background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:.1rem .4rem;line-height:1;transition:color var(--tr)}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:0 1.5rem 1.5rem}
+.modal-sec{margin-bottom:1.3rem}
+.modal-sec h3{font-family:var(--ff-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.modal-sec p{font-size:.875rem;line-height:1.7;color:var(--muted)}
+.steps-list{list-style:none}
+.steps-list li{padding:.55rem 0;border-bottom:1px solid var(--border);font-size:.85rem;line-height:1.6;color:var(--muted);display:flex;gap:.7rem}
+.steps-list li:last-child{border-bottom:none}
+.step-num{font-family:var(--ff-mono);font-size:.68rem;color:var(--gold);min-width:1.4rem;padding-top:.1rem}
+.muscle-tags{display:flex;flex-wrap:wrap;gap:.35rem}
+.muscle-tag{background:var(--surface2);border:1px solid var(--border);font-family:var(--ff-mono);font-size:.67rem;color:var(--muted);padding:.22rem .55rem;border-radius:2px}
+.modal-footer{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.6rem}
 
-def build_phases(duration):
-    phases = []
-    if duration >= 4:
-        phases.append(('Wochen 1–2', 'Eingewöhnung', '60–70% Intensität',
-            'Fokus auf saubere Ausführung. Weniger Sätze, perfekte Form.'))
-    if duration >= 6:
-        phases.append(('Wochen 3–4', 'Aufbau', '70–80% Intensität',
-            'Sätze und Intensität erhöhen. Pausen auf 60–90 Sek. kürzen.'))
-    if duration >= 8:
-        phases.append(('Wochen 5–6', 'Intensivierung', '80–90% Intensität',
-            'Maximale Sätze. Plyometrische Varianten einbauen wo möglich.'))
-    end = duration
-    start = max(end-1, end)
-    phases.append((f'Woche {end}', 'Peak / Test', '90–100% Intensität',
-        'Maximale Leistung. Teste dein Max in den wichtigsten Übungen.'))
-    return phases
+/* ===================== BUILDER ===================== */
+.builder-layout{display:grid;grid-template-columns:1fr 320px;gap:1.4rem;align-items:start}
+@media(max-width:768px){.builder-layout{grid-template-columns:1fr}}
+.builder-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.bp-header{padding:.9rem 1.2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.bp-header h3{font-family:var(--ff-display);font-weight:700;font-size:.92rem}
+.plan-config{padding:1.2rem;border-bottom:1px solid var(--border)}
+.plan-name-input{background:none;border:none;border-bottom:1px solid var(--border);color:var(--text);font-family:var(--ff-display);font-size:1.05rem;font-weight:700;width:100%;padding:.22rem 0;margin-bottom:.9rem;outline:none;transition:border-color var(--tr)}
+.plan-name-input:focus{border-color:var(--gold)}
+.plan-meta-row{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.9rem}
+.pm-item{display:flex;flex-direction:column;gap:.22rem}
+.pm-item label{font-family:var(--ff-mono);font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pm-item select,.pm-item input[type=text]{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--ff-body);font-size:.82rem;padding:.38rem .55rem;border-radius:var(--r);outline:none;cursor:pointer;transition:border-color var(--tr)}
+.pm-item select:focus,.pm-item input[type=text]:focus{border-color:var(--gold)}
+.plan-exercises{padding:.7rem;min-height:180px}
+.plan-ex-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:.7rem .9rem;margin-bottom:.45rem;display:flex;align-items:center;gap:.7rem}
+.pex-num{font-family:var(--ff-mono);font-size:.65rem;color:var(--muted);min-width:1.1rem;text-align:center}
+.pex-info{flex:1}
+.pex-name{font-size:.85rem;font-weight:500;margin-bottom:.18rem}
+.pex-inputs{display:flex;gap:.4rem;margin-top:.35rem;align-items:center}
+.si{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--ff-mono);font-size:.7rem;width:54px;padding:.2rem .35rem;border-radius:2px;outline:none;text-align:center}
+.si:focus{border-color:var(--gold)}
+.si-lbl{font-family:var(--ff-mono);font-size:.65rem;color:var(--muted)}
+.rm-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.95rem;padding:.18rem .35rem;transition:color var(--tr);line-height:1}
+.rm-btn:hover{color:var(--red)}
+.empty-plan{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:160px;color:var(--muted);gap:.4rem;text-align:center;font-size:.8rem}
+.empty-plan-icon{font-size:1.8rem;opacity:.25}
 
-WARMUP = [
+/* SAVED PLANS */
+.saved-plan-item{padding:.7rem .9rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;transition:background var(--tr);cursor:pointer}
+.saved-plan-item:last-child{border-bottom:none}
+.saved-plan-item:hover{background:var(--surface2)}
+.sp-name{font-size:.85rem;font-weight:500}
+.sp-meta{font-family:var(--ff-mono);font-size:.65rem;color:var(--muted);margin-top:.12rem}
+
+/* PLAN PREVIEW */
+.plan-preview{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;margin-top:1.5rem}
+.plan-preview h2{font-family:var(--ff-display);font-weight:800;font-size:1.25rem;margin-bottom:.3rem}
+.plan-preview .subtitle{font-family:var(--ff-mono);font-size:.7rem;color:var(--muted);letter-spacing:.08em;margin-bottom:1.5rem}
+.week-block{margin-bottom:1.5rem}
+.week-title{font-family:var(--ff-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:.8rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.day-row{display:grid;grid-template-columns:90px 1fr;gap:1rem;margin-bottom:.65rem;align-items:start}
+.day-label{font-family:var(--ff-mono);font-size:.72rem;color:var(--muted);padding-top:.1rem}
+.day-exercises{display:flex;flex-direction:column;gap:.3rem}
+.day-ex{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .85rem;font-size:.82rem;display:flex;justify-content:space-between;align-items:center}
+.day-ex-name{font-weight:500}
+.day-ex-sets{font-family:var(--ff-mono);font-size:.68rem;color:var(--gold)}
+.rest-day{font-family:var(--ff-mono);font-size:.72rem;color:var(--muted);font-style:italic;padding:.5rem 0}
+.plan-tips{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;margin-top:1.2rem}
+.plan-tips h3{font-family:var(--ff-mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:.7rem}
+.plan-tips ul{list-style:none}
+.plan-tips li{font-size:.82rem;color:var(--muted);padding:.3rem 0;border-bottom:1px solid var(--border);display:flex;gap:.6rem}
+.plan-tips li:last-child{border-bottom:none}
+.plan-tips li::before{content:'→';color:var(--gold);flex-shrink:0}
+
+/* TIMER */
+.timer-wrap{max-width:600px;margin:0 auto}
+.timer-display{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:2.8rem 2rem;text-align:center;margin-bottom:1.3rem;position:relative;overflow:hidden}
+.timer-display::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center bottom,rgba(196,169,109,.05) 0%,transparent 70%)}
+.timer-phase{font-family:var(--ff-mono);font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:.7rem}
+.timer-time{font-family:var(--ff-display);font-weight:800;font-size:clamp(3.8rem,10vw,6.5rem);letter-spacing:-.04em;line-height:1;transition:color .3s ease}
+.timer-time.rest{color:var(--gold)}
+.timer-round{font-family:var(--ff-mono);font-size:.75rem;color:var(--muted);margin-top:.7rem;letter-spacing:.08em}
+.timer-bar-wrap{height:2px;background:var(--border);margin-top:1.3rem;border-radius:1px;overflow:hidden;position:relative;z-index:1}
+.timer-bar{height:100%;background:var(--gold);width:100%;transition:width 1s linear,background .3s ease;border-radius:1px}
+.timer-controls{display:flex;gap:.7rem;justify-content:center;margin-bottom:1.3rem;flex-wrap:wrap}
+.timer-cfg{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem}
+.timer-cfg h3{font-family:var(--ff-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.9rem}
+.cfg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem}
+@media(max-width:480px){.cfg-grid{grid-template-columns:1fr 1fr}}
+.cfg-item{display:flex;flex-direction:column;gap:.25rem}
+.cfg-item label{font-family:var(--ff-mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.cfg-item input,.cfg-item select{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--ff-mono);font-size:.9rem;font-weight:500;text-align:center;padding:.45rem;border-radius:var(--r);outline:none;transition:border-color var(--tr)}
+.cfg-item input:focus,.cfg-item select:focus{border-color:var(--gold)}
+
+/* PROGRESS */
+.progress-layout{display:grid;grid-template-columns:1fr 1fr;gap:1.3rem}
+@media(max-width:640px){.progress-layout{grid-template-columns:1fr}}
+.progress-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.2rem}
+.progress-card h3{font-family:var(--ff-display);font-weight:700;font-size:.92rem;margin-bottom:.9rem}
+.log-form{display:flex;flex-direction:column;gap:.55rem;margin-bottom:.9rem}
+.log-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--ff-body);font-size:.85rem;padding:.48rem .7rem;border-radius:var(--r);outline:none;transition:border-color var(--tr)}
+.log-input:focus{border-color:var(--gold)}
+.log-2col{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.log-list{display:flex;flex-direction:column;gap:.45rem;max-height:300px;overflow-y:auto}
+.log-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:.65rem .9rem;display:flex;justify-content:space-between;align-items:flex-start}
+.log-item-ex{font-size:.85rem;font-weight:500;margin-bottom:.12rem}
+.log-item-meta,.log-item-date{font-family:var(--ff-mono);font-size:.65rem;color:var(--muted)}
+.log-item-date{white-space:nowrap}
+.streak-display{text-align:center;padding:.8rem 0}
+.streak-num{font-family:var(--ff-display);font-weight:800;font-size:2.8rem;color:var(--gold);line-height:1}
+.streak-label{font-family:var(--ff-mono);font-size:.68rem;color:var(--muted);letter-spacing:.1em;margin-top:.35rem}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:.9rem}
+.week-day{aspect-ratio:1;border-radius:2px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px}
+.week-day.done{border-color:var(--gold);background:rgba(196,169,109,.1)}
+.wday-dot{width:4px;height:4px;border-radius:50%;background:var(--gold)}
+.week-labels{display:flex;gap:3px;margin-top:3px}
+.wday-lbl{flex:1;font-family:var(--ff-mono);font-size:.56rem;color:var(--muted);text-align:center}
+.mini-chart{display:flex;gap:3px;align-items:flex-end;height:44px;margin-top:.7rem}
+.mini-bar{flex:1;background:var(--surface2);border-radius:2px 2px 0 0;border:1px solid var(--border);border-bottom:none;min-height:4px;transition:background var(--tr)}
+.mini-bar.has{background:rgba(196,169,109,.4);border-color:var(--gold)}
+.mini-bar-lbls{display:flex;gap:3px}
+.mbl{flex:1;font-family:var(--ff-mono);font-size:.54rem;color:var(--muted);text-align:center}
+
+/* NOTIFICATION */
+.notif{position:fixed;bottom:1.5rem;right:1.5rem;z-index:300;background:var(--surface);border:1px solid var(--gold);padding:.7rem 1.2rem;border-radius:var(--r);font-size:.85rem;color:var(--text);display:none}
+.notif.show{display:block;animation:slideUp .25s ease}
+
+/* ANIMATIONS */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="#" onclick="return false">KAMPFKRAFT</a>
+  <div class="nav-links">
+    <button class="active" onclick="showPage('home')">Übersicht</button>
+    <button onclick="showPage('exercises')">Übungen</button>
+    <button onclick="showPage('builder')">Trainingsplan</button>
+    <button onclick="showPage('timer')">Timer</button>
+    <button onclick="showPage('progress')">Fortschritt</button>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div id="page-home" class="page active">
+  <div class="hero">
+    <div class="hero-tag">Bodyweight Training für Kampfsport</div>
+    <h1>Kraft ohne<br><span>Geräte.</span><br>Technik ohne<br>Grenzen.</h1>
+    <p>Vollständige Trainingsplattform für MMA, Boxen und BJJ. Baue Pläne, lade sie als PDF herunter und verfolge deinen Fortschritt.</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary" onclick="showPage('exercises')">Übungen entdecken</button>
+      <button class="btn btn-outline" onclick="showPage('builder')">Plan erstellen</button>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num">34</div><div class="stat-label">Übungen</div></div>
+    <div class="stat"><div class="stat-num">3</div><div class="stat-label">Kampfsportarten</div></div>
+    <div class="stat"><div class="stat-num">3</div><div class="stat-label">Fitnesslevel</div></div>
+    <div class="stat"><div class="stat-num">PDF</div><div class="stat-label">Download</div></div>
+  </div>
+</div>
+
+<!-- EXERCISES -->
+<div id="page-exercises" class="page">
+  <div class="section">
+    <div class="section-header"><div class="section-title">Übungs-Bibliothek</div></div>
+    <div class="filter-bar" id="ex-filters">
+      <button class="filter-btn active" data-filter="all">Alle</button>
+      <button class="filter-btn" data-filter="beginner">Anfänger</button>
+      <button class="filter-btn" data-filter="intermediate">Fortgeschritten</button>
+      <button class="filter-btn" data-filter="advanced">Profi</button>
+      <button class="filter-btn" data-filter="mma">MMA</button>
+      <button class="filter-btn" data-filter="boxing">Boxen</button>
+      <button class="filter-btn" data-filter="bjj">BJJ</button>
+      <button class="filter-btn" data-filter="strength">Kraft</button>
+      <button class="filter-btn" data-filter="conditioning">Kondition</button>
+      <button class="filter-btn" data-filter="mobility">Mobilität</button>
+    </div>
+    <div class="exercise-grid" id="exercise-grid"></div>
+  </div>
+</div>
+
+<!-- BUILDER -->
+<div id="page-builder" class="page">
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Trainingsplan-Builder</div>
+      <button class="btn btn-sm btn-outline" onclick="clearPlan()">Neuer Plan</button>
+    </div>
+    <div class="builder-layout">
+      <div>
+        <div class="builder-panel" style="margin-bottom:1.2rem">
+          <div class="plan-config">
+            <input type="text" class="plan-name-input" id="plan-name" placeholder="Mein Trainingsplan..." value="Mein MMA-Grundlagenplan">
+            <div class="plan-meta-row">
+              <div class="pm-item"><label>Level</label>
+                <select id="plan-level"><option value="beginner">Anfänger</option><option value="intermediate" selected>Fortgeschritten</option><option value="advanced">Profi</option></select></div>
+              <div class="pm-item"><label>Fokus</label>
+                <select id="plan-focus"><option value="mma">MMA / Grappling</option><option value="boxing">Boxen / Kickboxen</option><option value="bjj">BJJ / Ringen</option><option value="mixed">Gemischt</option></select></div>
+              <div class="pm-item"><label>Tage / Woche</label>
+                <select id="plan-days"><option value="2">2 Tage</option><option value="3" selected>3 Tage</option><option value="4">4 Tage</option><option value="5">5 Tage</option></select></div>
+              <div class="pm-item"><label>Dauer (Wochen)</label>
+                <select id="plan-duration"><option value="4">4 Wochen</option><option value="6" selected>6 Wochen</option><option value="8">8 Wochen</option><option value="12">12 Wochen</option></select></div>
+            </div>
+          </div>
+          <div class="bp-header">
+            <h3>Übungen im Plan</h3>
+            <span id="plan-count" style="font-family:var(--ff-mono);font-size:.72rem;color:var(--muted)">0 Übungen</span>
+          </div>
+          <div class="plan-exercises" id="plan-exercises">
+            <div class="empty-plan"><div class="empty-plan-icon">＋</div><p>Übungen aus der Bibliothek hinzufügen</p></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-bottom:1.5rem">
+          <button class="btn btn-primary" onclick="savePlan()">Plan speichern</button>
+          <button class="btn btn-outline" onclick="showPage('exercises')">+ Übungen hinzufügen</button>
+          <button class="btn btn-outline" id="btn-gen-plan" onclick="generatePlan()" style="display:none">Trainingsplan anzeigen →</button>
+          <button class="btn btn-outline" id="btn-dl-pdf" onclick="downloadPlan()" style="display:none">⬇ PDF herunterladen</button>
+        </div>
+        <!-- PLAN PREVIEW -->
+        <div id="plan-preview" style="display:none"></div>
+      </div>
+      <div>
+        <div class="builder-panel">
+          <div class="bp-header">
+            <h3>Gespeicherte Pläne</h3>
+            <span id="saved-count" style="font-family:var(--ff-mono);font-size:.72rem;color:var(--muted)">0</span>
+          </div>
+          <div id="saved-plans-list">
+            <div style="padding:2rem 1rem;text-align:center;color:var(--muted);font-size:.8rem">Noch keine Pläne</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TIMER -->
+<div id="page-timer" class="page">
+  <div class="section">
+    <div class="section-header"><div class="section-title">Intervall-Timer</div></div>
+    <div class="timer-wrap">
+      <div class="timer-display">
+        <div class="timer-phase" id="t-phase">BEREIT</div>
+        <div class="timer-time" id="t-time">03:00</div>
+        <div class="timer-round" id="t-round">Runde 1 / 5</div>
+        <div class="timer-bar-wrap"><div class="timer-bar" id="t-bar"></div></div>
+      </div>
+      <div class="timer-controls">
+        <button class="btn btn-primary" id="t-btn" onclick="timerToggle()">Start</button>
+        <button class="btn btn-outline" onclick="timerReset()">Reset</button>
+        <button class="btn btn-outline" onclick="timerSkip()">Überspringen →</button>
+      </div>
+      <div class="timer-cfg">
+        <h3>Konfiguration</h3>
+        <div class="cfg-grid">
+          <div class="cfg-item"><label>Runden</label><input type="number" id="cfg-rounds" value="5" min="1" max="20" onchange="timerInit()"></div>
+          <div class="cfg-item"><label>Arbeit (Sek)</label><input type="number" id="cfg-work" value="180" min="10" max="600" onchange="timerInit()"></div>
+          <div class="cfg-item"><label>Pause (Sek)</label><input type="number" id="cfg-rest" value="60" min="5" max="300" onchange="timerInit()"></div>
+          <div class="cfg-item"><label>Vorbereitung</label><input type="number" id="cfg-prep" value="10" min="0" max="60" onchange="timerInit()"></div>
+          <div class="cfg-item" style="grid-column:span 2"><label>Modus</label>
+            <select id="cfg-mode" onchange="timerInit()">
+              <option value="rounds">Runden</option>
+              <option value="tabata">Tabata (20/10)</option>
+              <option value="amrap">AMRAP</option>
+            </select></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRESS -->
+<div id="page-progress" class="page">
+  <div class="section">
+    <div class="section-header"><div class="section-title">Fortschritt</div></div>
+    <div class="progress-layout">
+      <div>
+        <div class="progress-card" style="margin-bottom:1rem">
+          <h3>Training erfassen</h3>
+          <div class="log-form">
+            <select class="log-input" id="log-exercise"><option value="">Übung wählen...</option></select>
+            <div class="log-2col">
+              <input type="number" class="log-input" id="log-sets" placeholder="Sätze" min="1">
+              <input type="number" class="log-input" id="log-reps" placeholder="Wdh." min="1">
+            </div>
+            <input type="text" class="log-input" id="log-note" placeholder="Notiz (optional)">
+            <button class="btn btn-primary btn-sm" onclick="logWorkout()" style="align-self:flex-start">Eintragen</button>
+          </div>
+        </div>
+        <div class="progress-card">
+          <h3>Trainingsprotokoll</h3>
+          <div class="log-list" id="log-list"><div style="color:var(--muted);font-size:.8rem;padding:.8rem 0;text-align:center">Noch keine Einträge</div></div>
+        </div>
+      </div>
+      <div>
+        <div class="progress-card" style="margin-bottom:1rem">
+          <h3>Wochenserie</h3>
+          <div class="streak-display"><div class="streak-num" id="streak-num">0</div><div class="streak-label">TAGE IN FOLGE</div></div>
+          <div class="week-grid" id="week-grid"></div>
+          <div class="week-labels" id="week-lbls"></div>
+        </div>
+        <div class="progress-card">
+          <h3>Volumen (7 Tage)</h3>
+          <div class="mini-chart" id="vol-chart"></div>
+          <div class="mini-bar-lbls" id="vol-lbls"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-illo" id="modal-illo"></div>
+    <div class="modal-header">
+      <div>
+        <div id="modal-badges" style="display:flex;gap:.35rem;margin-bottom:.4rem;flex-wrap:wrap"></div>
+        <h2 id="modal-title"></h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-sec"><h3>Beschreibung</h3><p id="modal-desc"></p></div>
+      <div class="modal-sec"><h3>Ausführung</h3><ul class="steps-list" id="modal-steps"></ul></div>
+      <div class="modal-sec"><h3>Muskeln</h3><div class="muscle-tags" id="modal-muscles"></div></div>
+      <div class="modal-sec"><h3>Kampfsport-Relevanz</h3><p id="modal-tip" style="color:var(--gold)"></p></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" onclick="addModalToPlan()">Zum Plan hinzufügen</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<div class="notif" id="notif"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// SVG ILLUSTRATIONS
+// ══════════════════════════════════════════════
+const SVG = {};
+
+// Helper to build SVG string
+const s=(w,h,content,bg='#1a1a1a')=>`<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="background:${bg}">
+  <defs>
+    <style>
+      .fig{stroke:#c4a96d;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+      .fig-fill{stroke:#c4a96d;stroke-width:2;fill:rgba(196,169,109,0.15);stroke-linecap:round;stroke-linejoin:round}
+      .fig-head{fill:rgba(196,169,109,0.3);stroke:#c4a96d;stroke-width:2.2}
+      .grid{stroke:#2a2a2a;stroke-width:1;fill:none}
+      .label{fill:#7a7670;font-family:monospace;font-size:10px}
+      .accent{fill:#c4a96d;stroke:none}
+      .arrow{stroke:#c4a96d;stroke-width:1.5;fill:none;stroke-dasharray:4 2;marker-end:url(#arr)}
+    </style>
+    <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#c4a96d"/>
+    </marker>
+  </defs>
+  ${content}
+</svg>`;
+
+// 1 Burpee – 4-phase sequence
+SVG[1]=s(400,160,`
+  <text class="label" x="8" y="14">BURPEE — 4 PHASEN</text>
+  <!-- Phase 1: Stand -->
+  <g transform="translate(30,20)">
+    <circle class="fig-head" cx="30" cy="16" r="8"/>
+    <line class="fig" x1="30" y1="24" x2="30" y2="70"/>
+    <line class="fig" x1="30" y1="40" x2="14" y2="58"/><line class="fig" x1="30" y1="40" x2="46" y2="58"/>
+    <line class="fig" x1="30" y1="70" x2="18" y2="95"/><line class="fig" x1="30" y1="70" x2="42" y2="95"/>
+    <text class="label" x="14" y="110">Stand</text>
+  </g>
+  <!-- Phase 2: Crouch -->
+  <g transform="translate(115,20)">
+    <circle class="fig-head" cx="30" cy="40" r="8"/>
+    <line class="fig" x1="30" y1="48" x2="30" y2="70"/>
+    <line class="fig" x1="30" y1="55" x2="14" y2="62"/><line class="fig" x1="30" y1="55" x2="46" y2="62"/>
+    <line class="fig" x1="30" y1="70" x2="18" y2="90"/><line class="fig" x1="30" y1="70" x2="42" y2="90"/>
+    <line class="fig" x1="18" y1="90" x2="12" y2="95"/><line class="fig" x1="42" y1="90" x2="48" y2="95"/>
+    <text class="label" x="10" y="110">Hocke</text>
+  </g>
+  <!-- Phase 3: Plank -->
+  <g transform="translate(200,20)">
+    <circle class="fig-head" cx="16" cy="55" r="8"/>
+    <line class="fig" x1="22" y1="58" x2="52" y2="70"/>
+    <line class="fig" x1="36" y1="64" x2="28" y2="82"/><line class="fig" x1="36" y1="64" x2="44" y2="82"/>
+    <line class="fig" x1="16" y1="62" x2="10" y2="80"/><line class="fig" x1="16" y1="62" x2="24" y2="78"/>
+    <text class="label" x="8" y="110">Stütz</text>
+  </g>
+  <!-- Phase 4: Jump -->
+  <g transform="translate(295,10)">
+    <circle class="fig-head" cx="30" cy="12" r="8"/>
+    <line class="fig" x1="30" y1="20" x2="30" y2="58"/>
+    <line class="fig" x1="30" y1="35" x2="14" y2="28"/><line class="fig" x1="30" y1="35" x2="46" y2="28"/>
+    <line class="fig" x1="30" y1="58" x2="22" y2="80"/><line class="fig" x1="30" y1="58" x2="38" y2="80"/>
+    <text class="label" x="14" y="110">Sprung</text>
+    <path class="accent" d="M26,0 L30,8 L34,0 Z" opacity=".7"/>
+  </g>
+`);
+
+// 2 Liegestütz
+SVG[2]=s(400,160,`
+  <text class="label" x="8" y="14">LIEGESTÜTZ — START & TIEFPUNKT</text>
+  <!-- Up position -->
+  <g transform="translate(20,30)">
+    <circle class="fig-head" cx="14" cy="42" r="8"/>
+    <line class="fig" x1="20" y1="46" x2="60" y2="58"/>
+    <line class="fig" x1="38" y1="52" x2="32" y2="72"/><line class="fig" x1="38" y1="52" x2="44" y2="72"/>
+    <line class="fig" x1="14" y1="49" x2="8" y2="68"/><line class="fig" x1="14" y1="49" x2="22" y2="66"/>
+    <line class="fig" x1="8" y1="68" x2="8" y2="78"/><line class="fig" x1="22" y1="66" x2="22" y2="76"/>
+    <text class="label" x="4" y="96">Hoch</text>
+  </g>
+  <!-- Down position -->
+  <g transform="translate(200,50)">
+    <circle class="fig-head" cx="14" cy="60" r="8"/>
+    <line class="fig" x1="20" y1="63" x2="60" y2="68"/>
+    <line class="fig" x1="38" y1="65" x2="32" y2="82"/><line class="fig" x1="38" y1="65" x2="44" y2="82"/>
+    <line class="fig" x1="14" y1="66" x2="8" y2="82"/><line class="fig" x1="14" y1="66" x2="22" y2="80"/>
+    <line class="fig" x1="8" y1="82" x2="8" y2="88"/><line class="fig" x1="22" y1="80" x2="22" y2="86"/>
+    <!-- Floor -->
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="88" x2="80" y2="88"/>
+    <text class="label" x="4" y="102">Tief</text>
+  </g>
+  <text class="label" x="150" y="90">↓ 90°</text>
+  <text class="label" x="140" y="106">Ellbogen</text>
+`);
+
+// 3 Explosive Liegestütz
+SVG[3]=s(400,160,`
+  <text class="label" x="8" y="14">EXPLOSIVE LIEGESTÜTZ</text>
+  <g transform="translate(20,40)">
+    <circle class="fig-head" cx="14" cy="42" r="8"/>
+    <line class="fig" x1="20" y1="46" x2="60" y2="58"/>
+    <line class="fig" x1="38" y1="52" x2="32" y2="72"/><line class="fig" x1="38" y1="52" x2="44" y2="72"/>
+    <line class="fig" x1="14" y1="49" x2="8" y2="68"/><line class="fig" x1="14" y1="49" x2="22" y2="66"/>
+  </g>
+  <text class="label" x="90" y="90">→ EXPLODIEREN</text>
+  <g transform="translate(220,20)">
+    <circle class="fig-head" cx="14" cy="28" r="8"/>
+    <line class="fig" x1="20" y1="32" x2="60" y2="44"/>
+    <line class="fig" x1="38" y1="38" x2="32" y2="58"/><line class="fig" x1="38" y1="38" x2="44" y2="58"/>
+    <line class="fig" x1="14" y1="35" x2="4" y2="50"/><line class="fig" x1="14" y1="35" x2="22" y2="50"/>
+    <!-- hands off floor arrows -->
+    <path class="accent" d="M4,50 L0,58 L8,54 Z" opacity=".8"/>
+    <path class="accent" d="M22,50 L18,58 L26,54 Z" opacity=".8"/>
+    <text class="label" x="0" y="76">Hände frei!</text>
+  </g>
+`);
+
+// 4 Dips
+SVG[4]=s(400,160,`
+  <text class="label" x="8" y="14">DIPS — AUF STUHL / BANK</text>
+  <!-- Chair/bench -->
+  <rect style="stroke:#3a3a3a;stroke-width:1.5;fill:#1e1e1e" x="140" y="80" width="120" height="12" rx="2"/>
+  <line style="stroke:#3a3a3a;stroke-width:1.5" x1="148" y1="92" x2="148" y2="120"/>
+  <line style="stroke:#3a3a3a;stroke-width:1.5" x1="252" y1="92" x2="252" y2="120"/>
+  <!-- Person top -->
+  <g transform="translate(130,0)">
+    <circle class="fig-head" cx="70" cy="20" r="9"/>
+    <line class="fig" x1="70" y1="29" x2="70" y2="65"/>
+    <line class="fig" x1="70" y1="42" x2="48" y2="68"/><line class="fig" x1="70" y1="42" x2="92" y2="68"/>
+    <line class="fig" x1="48" y1="68" x2="48" y2="80"/><line class="fig" x1="92" y1="68" x2="92" y2="80"/>
+    <line class="fig" x1="70" y1="65" x2="58" y2="92"/><line class="fig" x1="70" y1="65" x2="82" y2="92"/>
+    <text class="label" x="55" y="140">Oben</text>
+  </g>
+  <!-- Arrows down -->
+  <line class="arrow" x1="200" y1="55" x2="200" y2="75"/>
+`);
+
+// 5 Pike Liegestütz
+SVG[5]=s(400,160,`
+  <text class="label" x="8" y="14">PIKE-LIEGESTÜTZ — SCHULTERN</text>
+  <g transform="translate(80,10)">
+    <circle class="fig-head" cx="100" cy="18" r="8"/>
+    <!-- torso forms inverted V -->
+    <line class="fig" x1="100" y1="26" x2="60" y2="95"/>
+    <line class="fig" x1="100" y1="26" x2="140" y2="80"/>
+    <!-- arms -->
+    <line class="fig" x1="60" y1="95" x2="40" y2="110"/><line class="fig" x1="60" y1="95" x2="80" y2="110"/>
+    <!-- legs -->
+    <line class="fig" x1="140" y1="80" x2="128" y2="130"/><line class="fig" x1="140" y1="80" x2="152" y2="130"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="20" y1="130" x2="180" y2="130"/>
+    <text class="label" x="60" y="148">Hüfte oben – V-Form</text>
+  </g>
+`);
+
+// 6 Kniebeugen
+SVG[6]=s(400,160,`
+  <text class="label" x="8" y="14">KNIEBEUGEN — TIEF & PARALLEL</text>
+  <!-- Stand -->
+  <g transform="translate(40,15)">
+    <circle class="fig-head" cx="30" cy="14" r="8"/>
+    <line class="fig" x1="30" y1="22" x2="30" y2="68"/>
+    <line class="fig" x1="30" y1="38" x2="14" y2="55"/><line class="fig" x1="30" y1="38" x2="46" y2="55"/>
+    <line class="fig" x1="30" y1="68" x2="18" y2="100"/><line class="fig" x1="30" y1="68" x2="42" y2="100"/>
+    <text class="label" x="14" y="118">Stand</text>
+  </g>
+  <!-- Squat -->
+  <g transform="translate(170,15)">
+    <circle class="fig-head" cx="30" cy="28" r="8"/>
+    <line class="fig" x1="30" y1="36" x2="30" y2="70"/>
+    <line class="fig" x1="30" y1="50" x2="10" y2="42"/><line class="fig" x1="30" y1="50" x2="50" y2="42"/>
+    <line class="fig" x1="30" y1="70" x2="10" y2="96"/><line class="fig" x1="30" y1="70" x2="50" y2="96"/>
+    <line class="fig" x1="10" y1="96" x2="4" y2="104"/><line class="fig" x1="50" y1="96" x2="56" y2="104"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="104" x2="60" y2="104"/>
+    <!-- 90 degree indicator -->
+    <path style="stroke:rgba(196,169,109,.4);stroke-width:1;fill:none" d="M 20,70 A 15,15 0 0,1 30,55"/>
+    <text class="label" x="4" y="118">Parallel</text>
+  </g>
+  <!-- Deep squat -->
+  <g transform="translate(295,15)">
+    <circle class="fig-head" cx="30" cy="42" r="8"/>
+    <line class="fig" x1="30" y1="50" x2="30" y2="75"/>
+    <line class="fig" x1="30" y1="60" x2="10" y2="52"/><line class="fig" x1="30" y1="60" x2="50" y2="52"/>
+    <line class="fig" x1="30" y1="75" x2="10" y2="92"/><line class="fig" x1="30" y1="75" x2="50" y2="92"/>
+    <line class="fig" x1="10" y1="92" x2="6" y2="100"/><line class="fig" x1="50" y1="92" x2="54" y2="100"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="100" x2="60" y2="100"/>
+    <text class="label" x="8" y="118">Tief</text>
+  </g>
+`);
+
+// 7 Jump Squats
+SVG[7]=s(400,160,`
+  <text class="label" x="8" y="14">JUMP SQUAT — LANDEPHASE</text>
+  <g transform="translate(50,20)">
+    <circle class="fig-head" cx="30" cy="42" r="8"/><line class="fig" x1="30" y1="50" x2="30" y2="80"/>
+    <line class="fig" x1="30" y1="62" x2="12" y2="52"/><line class="fig" x1="30" y1="62" x2="48" y2="52"/>
+    <line class="fig" x1="30" y1="80" x2="14" y2="100"/><line class="fig" x1="30" y1="80" x2="46" y2="100"/>
+    <line class="fig" x1="14" y1="100" x2="8" y2="108"/><line class="fig" x1="46" y1="100" x2="52" y2="108"/>
+    <text class="label" x="8" y="122">Abstoß</text>
+  </g>
+  <g transform="translate(190,5)">
+    <circle class="fig-head" cx="30" cy="12" r="8"/>
+    <line class="fig" x1="30" y1="20" x2="30" y2="58"/>
+    <line class="fig" x1="30" y1="36" x2="12" y2="24"/><line class="fig" x1="30" y1="36" x2="48" y2="24"/>
+    <line class="fig" x1="30" y1="58" x2="22" y2="80"/><line class="fig" x1="30" y1="58" x2="38" y2="80"/>
+    <path class="accent" d="M26,0 L30,8 L34,0 Z"/>
+    <text class="label" x="14" y="96">Flug</text>
+  </g>
+  <g transform="translate(300,20)">
+    <circle class="fig-head" cx="30" cy="28" r="8"/>
+    <line class="fig" x1="30" y1="36" x2="30" y2="68"/>
+    <line class="fig" x1="30" y1="50" x2="12" y2="40"/><line class="fig" x1="30" y1="50" x2="48" y2="40"/>
+    <line class="fig" x1="30" y1="68" x2="16" y2="90"/><line class="fig" x1="30" y1="68" x2="44" y2="90"/>
+    <line class="fig" x1="16" y1="90" x2="10" y2="100"/><line class="fig" x1="44" y1="90" x2="50" y2="100"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="100" x2="60" y2="100"/>
+    <text class="label" x="10" y="116">Weich landen</text>
+  </g>
+`);
+
+// 8 Ausfallschritte
+SVG[8]=s(400,160,`
+  <text class="label" x="8" y="14">AUSFALLSCHRITT — SEITENANSICHT</text>
+  <g transform="translate(100,15)">
+    <circle class="fig-head" cx="60" cy="14" r="8"/>
+    <line class="fig" x1="60" y1="22" x2="60" y2="62"/>
+    <line class="fig" x1="60" y1="38" x2="44" y2="55"/><line class="fig" x1="60" y1="38" x2="76" y2="55"/>
+    <!-- front leg bent -->
+    <line class="fig" x1="60" y1="62" x2="90" y2="88"/><line class="fig" x1="90" y1="88" x2="96" y2="112"/>
+    <!-- back leg bent to ground -->
+    <line class="fig" x1="60" y1="62" x2="30" y2="90"/><line class="fig" x1="30" y1="90" x2="26" y2="112"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="10" y1="112" x2="120" y2="112"/>
+    <!-- 90 degree back knee indicator -->
+    <circle style="stroke:rgba(196,169,109,.5);stroke-width:1;fill:none" cx="30" cy="90" r="6"/>
+    <text class="label" x="10" y="132">Hinteres Knie 90°</text>
+    <text class="label" x="70" y="132">Vorne: Knie über Fuß</text>
+  </g>
+`);
+
+// 9 Pistol Squat
+SVG[9]=s(400,160,`
+  <text class="label" x="8" y="14">PISTOL SQUAT — EINBEINIG</text>
+  <g transform="translate(60,15)">
+    <circle class="fig-head" cx="60" cy="16" r="8"/>
+    <line class="fig" x1="60" y1="24" x2="60" y2="70"/>
+    <line class="fig" x1="60" y1="44" x2="42" y2="58"/><line class="fig" x1="60" y1="44" x2="78" y2="58"/>
+    <line class="fig" x1="60" y1="70" x2="52" y2="98"/><line class="fig" x1="52" y1="98" x2="46" y2="106"/>
+    <line class="fig" x1="60" y1="70" x2="86" y2="72"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="30" y1="106" x2="90" y2="106"/>
+    <text class="label" x="20" y="124">Stand (Vorbereitung)</text>
+  </g>
+  <g transform="translate(220,25)">
+    <circle class="fig-head" cx="50" cy="40" r="8"/>
+    <line class="fig" x1="50" y1="48" x2="50" y2="82"/>
+    <line class="fig" x1="50" y1="62" x2="32" y2="50"/><line class="fig" x1="50" y1="62" x2="68" y2="50"/>
+    <line class="fig" x1="50" y1="82" x2="42" y2="105"/><line class="fig" x1="42" y1="105" x2="36" y2="112"/>
+    <line class="fig" x1="50" y1="82" x2="76" y2="58"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="20" y1="112" x2="80" y2="112"/>
+    <text class="label" x="10" y="128">Volle Hocke, 1 Bein</text>
+  </g>
+`);
+
+// 10 Klimmzüge
+SVG[10]=s(400,160,`
+  <text class="label" x="8" y="14">KLIMMZÜGE — KINN ÜBER STANGE</text>
+  <!-- Bar -->
+  <line style="stroke:#5a5a5a;stroke-width:4;stroke-linecap:round" x1="60" y1="30" x2="340" y2="30"/>
+  <!-- Hanging -->
+  <g transform="translate(60,0)">
+    <circle class="fig-head" cx="80" cy="65" r="8"/>
+    <line class="fig" x1="80" y1="73" x2="80" y2="115"/>
+    <line class="fig" x1="80" y1="90" x2="60" y2="108"/><line class="fig" x1="80" y1="90" x2="100" y2="108"/>
+    <line class="fig" x1="80" y1="115" x2="70" y2="140"/><line class="fig" x1="80" y1="115" x2="90" y2="140"/>
+    <line class="fig" x1="80" y1="73" x2="68" y2="30"/><line class="fig" x1="80" y1="73" x2="92" y2="30"/>
+    <text class="label" x="62" y="152">Hang</text>
+  </g>
+  <!-- Up -->
+  <g transform="translate(200,0)">
+    <circle class="fig-head" cx="80" cy="42" r="8"/>
+    <line class="fig" x1="80" y1="50" x2="80" y2="88"/>
+    <line class="fig" x1="80" y1="65" x2="60" y2="75"/><line class="fig" x1="80" y1="65" x2="100" y2="75"/>
+    <line class="fig" x1="80" y1="88" x2="70" y2="115"/><line class="fig" x1="80" y1="88" x2="90" y2="115"/>
+    <line class="fig" x1="80" y1="50" x2="68" y2="30"/><line class="fig" x1="80" y1="50" x2="92" y2="30"/>
+    <text class="label" x="54" y="130">Kinn über Stange</text>
+    <path class="accent" d="M58,50 L54,58 L62,54 Z"/>
+    <path class="accent" d="M102,50 L98,58 L106,54 Z"/>
+  </g>
+`);
+
+// 11 Chin-ups
+SVG[11]=s(400,160,`
+  <text class="label" x="8" y="14">CHIN-UPS — UNTERGRIFF</text>
+  <line style="stroke:#5a5a5a;stroke-width:4;stroke-linecap:round" x1="60" y1="30" x2="340" y2="30"/>
+  <g transform="translate(60,0)">
+    <circle class="fig-head" cx="80" cy="65" r="8"/>
+    <line class="fig" x1="80" y1="73" x2="80" y2="115"/>
+    <line class="fig" x1="80" y1="90" x2="60" y2="108"/><line class="fig" x1="80" y1="90" x2="100" y2="108"/>
+    <line class="fig" x1="80" y1="115" x2="70" y2="140"/><line class="fig" x1="80" y1="115" x2="90" y2="140"/>
+    <line class="fig" x1="80" y1="73" x2="68" y2="30"/><line class="fig" x1="80" y1="73" x2="92" y2="30"/>
+    <text class="label" x="58" y="154">Untergriff</text>
+    <!-- underhand grip indicator -->
+    <circle style="stroke:rgba(196,169,109,.5);stroke-width:1.5;fill:none" cx="68" cy="30" r="4"/>
+    <circle style="stroke:rgba(196,169,109,.5);stroke-width:1.5;fill:none" cx="92" cy="30" r="4"/>
+  </g>
+  <g transform="translate(200,0)">
+    <circle class="fig-head" cx="80" cy="40" r="8"/>
+    <line class="fig" x1="80" y1="48" x2="80" y2="86"/>
+    <line class="fig" x1="80" y1="65" x2="64" y2="72"/><line class="fig" x1="80" y1="65" x2="96" y2="72"/>
+    <line class="fig" x1="80" y1="86" x2="70" y2="112"/><line class="fig" x1="80" y1="86" x2="90" y2="112"/>
+    <line class="fig" x1="80" y1="48" x2="68" y2="30"/><line class="fig" x1="80" y1="48" x2="92" y2="30"/>
+    <text class="label" x="60" y="128">Brust zur Stange</text>
+  </g>
+`);
+
+// 12 Mountain Climbers
+SVG[12]=s(400,160,`
+  <text class="label" x="8" y="14">MOUNTAIN CLIMBERS</text>
+  <g transform="translate(30,30)">
+    <circle class="fig-head" cx="14" cy="42" r="8"/>
+    <line class="fig" x1="20" y1="46" x2="60" y2="58"/>
+    <line class="fig" x1="38" y1="52" x2="32" y2="72"/><line class="fig" x1="38" y1="52" x2="44" y2="72"/>
+    <line class="fig" x1="14" y1="49" x2="8" y2="68"/><line class="fig" x1="14" y1="49" x2="22" y2="66"/>
+    <!-- knee to chest -->
+    <line class="fig" x1="32" y1="72" x2="22" y2="55"/> 
+    <text class="label" x="0" y="96">Knie zur Brust</text>
+  </g>
+  <g transform="translate(220,30)">
+    <circle class="fig-head" cx="14" cy="42" r="8"/>
+    <line class="fig" x1="20" y1="46" x2="60" y2="58"/>
+    <line class="fig" x1="38" y1="52" x2="32" y2="72"/><line class="fig" x1="38" y1="52" x2="44" y2="72"/>
+    <line class="fig" x1="14" y1="49" x2="8" y2="68"/><line class="fig" x1="14" y1="49" x2="22" y2="66"/>
+    <!-- other knee drawn back -->
+    <line class="fig" x1="44" y1="72" x2="56" y2="90"/>
+    <text class="label" x="0" y="96">Gegenseite</text>
+  </g>
+  <!-- Alternating arrows -->
+  <text class="label" x="170" y="80">⇄</text>
+`);
+
+// 13 Schattenboxen
+SVG[13]=s(400,160,`
+  <text class="label" x="8" y="14">SCHATTENBOXEN — KAMPFHALTUNG</text>
+  <g transform="translate(120,15)">
+    <circle class="fig-head" cx="70" cy="16" r="9"/>
+    <!-- torso slight angle -->
+    <line class="fig" x1="70" y1="25" x2="66" y2="72"/>
+    <!-- guard arms -->
+    <line class="fig" x1="68" y1="40" x2="46" y2="60"/><line class="fig" x1="46" y1="60" x2="38" y2="52"/>
+    <line class="fig" x1="68" y1="40" x2="92" y2="30"/><line class="fig" x1="92" y1="30" x2="108" y2="48"/>
+    <!-- jab extended -->
+    <line style="stroke:rgba(196,169,109,.9);stroke-width:2.5;stroke-linecap:round" x1="108" y1="48" x2="148" y2="38"/>
+    <circle class="accent" cx="148" cy="38" r="4" opacity=".8"/>
+    <!-- stance legs -->
+    <line class="fig" x1="66" y1="72" x2="48" y2="108"/><line class="fig" x1="48" y1="108" x2="40" y2="116"/>
+    <line class="fig" x1="66" y1="72" x2="84" y2="108"/><line class="fig" x1="84" y1="108" x2="90" y2="116"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="20" y1="116" x2="160" y2="116"/>
+    <text class="label" x="30" y="134">Kampfhaltung + Jab</text>
+  </g>
+`);
+
+// 14 Box Jumps
+SVG[14]=s(400,160,`
+  <text class="label" x="8" y="14">BOX JUMPS</text>
+  <!-- Box -->
+  <rect style="stroke:#4a4a4a;stroke-width:1.5;fill:#1e1e1e" x="230" y="90" width="100" height="50" rx="2"/>
+  <line style="stroke:#5a5a5a;stroke-width:1" x1="230" y1="90" x2="330" y2="90"/>
+  <!-- Person jumping -->
+  <g transform="translate(60,10)">
+    <circle class="fig-head" cx="30" cy="22" r="8"/>
+    <line class="fig" x1="30" y1="30" x2="30" y2="68"/>
+    <line class="fig" x1="30" y1="46" x2="14" y2="34"/><line class="fig" x1="30" y1="46" x2="46" y2="34"/>
+    <line class="fig" x1="30" y1="68" x2="20" y2="90"/><line class="fig" x1="30" y1="68" x2="40" y2="90"/>
+    <path class="accent" d="M26,10 L30,18 L34,10 Z"/>
+    <text class="label" x="10" y="106">Sprung</text>
+  </g>
+  <!-- Person landing on box -->
+  <g transform="translate(210,40)">
+    <circle class="fig-head" cx="70" cy="20" r="8"/>
+    <line class="fig" x1="70" y1="28" x2="70" y2="62"/>
+    <line class="fig" x1="70" y1="42" x2="52" y2="52"/><line class="fig" x1="70" y1="42" x2="88" y2="52"/>
+    <line class="fig" x1="70" y1="62" x2="58" y2="52"/><line class="fig" x1="70" y1="62" x2="82" y2="52"/>
+    <text class="label" x="48" y="78">Weich landen</text>
+  </g>
+`);
+
+// 15 Jumping Jacks
+SVG[15]=s(400,160,`
+  <text class="label" x="8" y="14">JUMPING JACKS</text>
+  <g transform="translate(60,20)">
+    <circle class="fig-head" cx="50" cy="14" r="8"/>
+    <line class="fig" x1="50" y1="22" x2="50" y2="70"/>
+    <line class="fig" x1="50" y1="40" x2="30" y2="56"/><line class="fig" x1="50" y1="40" x2="70" y2="56"/>
+    <line class="fig" x1="50" y1="70" x2="38" y2="100"/><line class="fig" x1="50" y1="70" x2="62" y2="100"/>
+    <text class="label" x="24" y="116">Geschlossen</text>
+  </g>
+  <g transform="translate(210,20)">
+    <circle class="fig-head" cx="50" cy="14" r="8"/>
+    <line class="fig" x1="50" y1="22" x2="50" y2="70"/>
+    <line class="fig" x1="50" y1="40" x2="14" y2="24"/><line class="fig" x1="50" y1="40" x2="86" y2="24"/>
+    <line class="fig" x1="50" y1="70" x2="24" y2="100"/><line class="fig" x1="50" y1="70" x2="76" y2="100"/>
+    <path class="accent" d="M10,20 L14,28 L18,20 Z" opacity=".8"/>
+    <path class="accent" d="M82,20 L86,28 L90,20 Z" opacity=".8"/>
+    <text class="label" x="30" y="116">Offen</text>
+  </g>
+  <text style="fill:#c4a96d;font-size:22px;font-weight:bold" x="185" y="65">⇄</text>
+`);
+
+// 16 Bear Crawl
+SVG[16]=s(400,160,`
+  <text class="label" x="8" y="14">BEAR CRAWL — TIERE NACHMACHEN</text>
+  <g transform="translate(40,30)">
+    <circle class="fig-head" cx="20" cy="52" r="8"/>
+    <line class="fig" x1="26" y1="56" x2="68" y2="70"/>
+    <line class="fig" x1="46" y1="63" x2="40" y2="82"/><line class="fig" x1="46" y1="63" x2="52" y2="82"/>
+    <line class="fig" x1="20" y1="58" x2="14" y2="76"/><line class="fig" x1="20" y1="58" x2="28" y2="74"/>
+    <!-- knees hovering -->
+    <line style="stroke:#c4a96d;stroke-width:1;stroke-dasharray:3 2" x1="40" y1="82" x2="40" y2="90"/>
+    <line style="stroke:#c4a96d;stroke-width:1;stroke-dasharray:3 2" x1="52" y1="82" x2="52" y2="90"/>
+    <text class="label" x="0" y="110">Knie 5cm über Boden</text>
+  </g>
+  <!-- Direction arrows -->
+  <text class="label" x="240" y="80">→ Vorwärts</text>
+  <line class="arrow" x1="200" y1="75" x2="280" y2="75"/>
+`);
+
+// 17 Tuck Jumps
+SVG[17]=s(400,160,`
+  <text class="label" x="8" y="14">TUCK JUMPS — KNIE ZUR BRUST</text>
+  <g transform="translate(60,20)">
+    <circle class="fig-head" cx="30" cy="28" r="8"/><line class="fig" x1="30" y1="36" x2="30" y2="72"/>
+    <line class="fig" x1="30" y1="50" x2="14" y2="38"/><line class="fig" x1="30" y1="50" x2="46" y2="38"/>
+    <line class="fig" x1="30" y1="72" x2="22" y2="92"/><line class="fig" x1="30" y1="72" x2="38" y2="92"/>
+    <text class="label" x="10" y="108">Abstoß</text>
+  </g>
+  <g transform="translate(210,15)">
+    <circle class="fig-head" cx="30" cy="18" r="8"/>
+    <line class="fig" x1="30" y1="26" x2="30" y2="58"/>
+    <line class="fig" x1="30" y1="40" x2="14" y2="32"/><line class="fig" x1="30" y1="40" x2="46" y2="32"/>
+    <!-- Both knees pulled high -->
+    <line class="fig" x1="30" y1="58" x2="16" y2="48"/><line class="fig" x1="16" y1="48" x2="18" y2="58"/>
+    <line class="fig" x1="30" y1="58" x2="44" y2="48"/><line class="fig" x1="44" y1="48" x2="42" y2="58"/>
+    <path class="accent" d="M26,6 L30,14 L34,6 Z"/>
+    <text class="label" x="6" y="86">Knie zur Brust!</text>
+  </g>
+`);
+
+// 18 Plank
+SVG[18]=s(400,160,`
+  <text class="label" x="8" y="14">PLANK — GERADE LINIE</text>
+  <g transform="translate(30,40)">
+    <circle class="fig-head" cx="16" cy="50" r="8"/>
+    <line class="fig" x1="22" y1="54" x2="72" y2="66"/>
+    <line class="fig" x1="72" y1="66" x2="100" y2="74"/>
+    <line class="fig" x1="100" y1="74" x2="130" y2="80"/>
+    <line class="fig" x1="16" y1="55" x2="10" y2="72"/><line class="fig" x1="10" y1="72" x2="10" y2="80"/>
+    <line class="fig" x1="24" y1="58" x2="20" y2="74"/><line class="fig" x1="20" y1="74" x2="20" y2="80"/>
+    <line class="fig" x1="130" y1="80" x2="118" y2="95"/><line class="fig" x1="130" y1="80" x2="142" y2="95"/>
+    <!-- straight line indicator -->
+    <line style="stroke:rgba(196,169,109,.3);stroke-width:1;stroke-dasharray:5 3" x1="16" y1="50" x2="160" y2="82"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="95" x2="200" y2="95"/>
+    <text class="label" x="40" y="112">Körper = gerade Linie</text>
+  </g>
+  <!-- Wrong posture indicator -->
+  <g transform="translate(260,40)" opacity=".5">
+    <circle style="stroke:#c0392b;stroke-width:2;fill:none" cx="16" cy="40" r="8"/>
+    <line style="stroke:#c0392b;stroke-width:2;stroke-linecap:round" x1="22" y1="44" x2="72" y2="40"/>
+    <line style="stroke:#c0392b;stroke-width:2;stroke-linecap:round" x1="72" y1="40" x2="100" y2="55"/>
+    <text style="fill:#c0392b;font-family:monospace;font-size:9px" x="10" y="80">Hüfte nicht</text>
+    <text style="fill:#c0392b;font-family:monospace;font-size:9px" x="10" y="92">hochschieben ✗</text>
+  </g>
+`);
+
+// 19 Side Plank
+SVG[19]=s(400,160,`
+  <text class="label" x="8" y="14">SIDE PLANK — SEITLICH</text>
+  <g transform="translate(80,25)">
+    <circle class="fig-head" cx="28" cy="25" r="8"/>
+    <line class="fig" x1="28" y1="33" x2="24" y2="80"/>
+    <line class="fig" x1="26" y1="55" x2="8" y2="45"/><line class="fig" x1="26" y1="55" x2="48" y2="35"/>
+    <line class="fig" x1="24" y1="80" x2="12" y2="104"/><line class="fig" x1="24" y1="80" x2="36" y2="104"/>
+    <line class="fig" x1="8" y1="45" x2="8" y2="55"/>
+    <!-- top arm pointing up -->
+    <line class="fig" x1="48" y1="35" x2="52" y2="18"/>
+    <path class="accent" d="M48,10 L52,18 L56,10 Z"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="104" x2="80" y2="104"/>
+    <text class="label" x="0" y="120">Auf Unterarm stützen</text>
+  </g>
+  <g transform="translate(240,25)">
+    <!-- Hip raise variation -->
+    <circle class="fig-head" cx="28" cy="48" r="8"/>
+    <line class="fig" x1="28" y1="56" x2="22" y2="95"/>
+    <line class="fig" x1="25" y1="74" x2="8" y2="68"/>
+    <line class="fig" x1="25" y1="74" x2="46" y2="55"/>
+    <line class="fig" x1="22" y1="95" x2="10" y2="114"/><line class="fig" x1="22" y1="95" x2="34" y2="114"/>
+    <line class="fig" x1="8" y1="68" x2="8" y2="76"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="114" x2="80" y2="114"/>
+    <path class="arrow" d="M46,55 L46,35"/>
+    <text class="label" x="0" y="130">Hüfte hochdrücken</text>
+  </g>
+`);
+
+// 20 Hollow Body Hold
+SVG[20]=s(400,160,`
+  <text class="label" x="8" y="14">HOLLOW BODY HOLD</text>
+  <g transform="translate(40,50)">
+    <circle class="fig-head" cx="14" cy="35" r="8"/>
+    <!-- curved body on back, arms back, legs up -->
+    <line class="fig" x1="20" y1="38" x2="80" y2="50"/>
+    <line class="fig" x1="80" y1="50" x2="110" y2="45"/>
+    <line class="fig" x1="110" y1="45" x2="140" y2="38"/>
+    <!-- arms stretched above head -->
+    <line class="fig" x1="14" y1="38" x2="-12" y2="32"/>
+    <line class="fig" x1="14" y1="38" x2="-4" y2="28"/>
+    <!-- legs lifted -->
+    <line class="fig" x1="140" y1="38" x2="160" y2="24"/>
+    <line class="fig" x1="160" y1="24" x2="168" y2="20"/>
+    <line class="fig" x1="140" y1="38" x2="158" y2="28"/>
+    <line class="fig" x1="158" y1="28" x2="166" y2="26"/>
+    <!-- floor -->
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="-20" y1="60" x2="200" y2="60"/>
+    <text class="label" x="30" y="78">Unterer Rücken bleibt am Boden</text>
+  </g>
+`);
+
+// 21 L-Sit
+SVG[21]=s(400,160,`
+  <text class="label" x="8" y="14">L-SIT — PARALLELEN / STÜHLE</text>
+  <!-- Two chairs -->
+  <rect style="stroke:#4a4a4a;stroke-width:1.5;fill:#1e1e1e" x="80" y="88" width="24" height="8" rx="2"/>
+  <line style="stroke:#4a4a4a;stroke-width:1.5" x1="86" y1="96" x2="86" y2="130"/>
+  <line style="stroke:#4a4a4a;stroke-width:1.5" x1="98" y1="96" x2="98" y2="130"/>
+  <rect style="stroke:#4a4a4a;stroke-width:1.5;fill:#1e1e1e" x="270" y="88" width="24" height="8" rx="2"/>
+  <line style="stroke:#4a4a4a;stroke-width:1.5" x1="276" y1="96" x2="276" y2="130"/>
+  <line style="stroke:#4a4a4a;stroke-width:1.5" x1="288" y1="96" x2="288" y2="130"/>
+  <!-- Person in L-sit -->
+  <g transform="translate(100,20)">
+    <circle class="fig-head" cx="90" cy="28" r="9"/>
+    <line class="fig" x1="90" y1="37" x2="90" y2="80"/>
+    <!-- arms pushing down -->
+    <line class="fig" x1="90" y1="52" x2="66" y2="68"/><line class="fig" x1="66" y1="68" x2="66" y2="88"/>
+    <line class="fig" x1="90" y1="52" x2="114" y2="68"/><line class="fig" x1="114" y1="68" x2="114" y2="88"/>
+    <!-- legs straight horizontal -->
+    <line class="fig" x1="90" y1="80" x2="56" y2="76"/>
+    <line class="fig" x1="90" y1="80" x2="134" y2="76"/>
+    <text class="label" x="50" y="108">Beine parallel – 90°</text>
+  </g>
+`);
+
+// 22 Sit-ups
+SVG[22]=s(400,160,`
+  <text class="label" x="8" y="14">SIT-UPS — KAMPFSPORT VARIANTE</text>
+  <!-- Lying -->
+  <g transform="translate(30,80)">
+    <circle class="fig-head" cx="14" cy="22" r="8"/>
+    <line class="fig" x1="20" y1="26" x2="80" y2="32"/>
+    <line class="fig" x1="50" y1="29" x2="44" y2="44"/><line class="fig" x1="50" y1="29" x2="56" y2="44"/>
+    <line class="fig" x1="80" y1="32" x2="72" y2="52"/><line class="fig" x1="80" y1="32" x2="88" y2="52"/>
+    <line class="fig" x1="72" y1="52" x2="66" y2="58"/><line class="fig" x1="88" y1="52" x2="94" y2="58"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="58" x2="120" y2="58"/>
+    <text class="label" x="14" y="72">Ausgansposition</text>
+  </g>
+  <!-- Sitting up -->
+  <g transform="translate(230,30)">
+    <circle class="fig-head" cx="30" cy="26" r="8"/>
+    <line class="fig" x1="30" y1="34" x2="30" y2="72"/>
+    <line class="fig" x1="30" y1="50" x2="12" y2="42"/><line class="fig" x1="12" y1="42" x2="8" y2="36"/>
+    <line class="fig" x1="30" y1="50" x2="48" y2="42"/><line class="fig" x1="48" y1="42" x2="52" y2="36"/>
+    <line class="fig" x1="30" y1="72" x2="14" y2="100"/><line class="fig" x1="30" y1="72" x2="46" y2="100"/>
+    <line class="fig" x1="14" y1="100" x2="10" y2="108"/><line class="fig" x1="46" y1="100" x2="50" y2="108"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="108" x2="70" y2="108"/>
+    <text class="label" x="6" y="124">Aufsetzen</text>
+  </g>
+  <path class="arrow" d="M160,70 L200,50"/>
+`);
+
+// 23 Hip Circles
+SVG[23]=s(400,160,`
+  <text class="label" x="8" y="14">HIP CIRCLES — HÜFTKREISE</text>
+  <g transform="translate(130,20)">
+    <circle class="fig-head" cx="70" cy="16" r="9"/>
+    <line class="fig" x1="70" y1="25" x2="70" y2="72"/>
+    <line class="fig" x1="70" y1="45" x2="50" y2="60"/><line class="fig" x1="70" y1="45" x2="90" y2="60"/>
+    <line class="fig" x1="70" y1="72" x2="58" y2="104"/><line class="fig" x1="70" y1="72" x2="82" y2="104"/>
+    <line class="fig" x1="58" y1="104" x2="52" y2="114"/><line class="fig" x1="82" y1="104" x2="88" y2="114"/>
+    <!-- circular arrow around hips -->
+    <path style="stroke:#c4a96d;stroke-width:1.5;fill:none;stroke-dasharray:5 3" d="M 52,68 A 22,22 0 1 1 88,68"/>
+    <path class="accent" d="M 88,68 L 84,60 L 92,62 Z"/>
+    <text class="label" x="36" y="132">Volle Hüftkreise</text>
+  </g>
+`);
+
+// 24 Shrimp
+SVG[24]=s(400,160,`
+  <text class="label" x="8" y="14">SHRIMP (GARNELE) — BJJ ESCAPE</text>
+  <g transform="translate(30,30)">
+    <!-- On side, hip escape motion -->
+    <circle class="fig-head" cx="16" cy="56" r="8"/>
+    <line class="fig" x1="22" y1="60" x2="80" y2="72"/>
+    <line class="fig" x1="50" y1="66" x2="44" y2="84"/><line class="fig" x1="50" y1="66" x2="56" y2="84"/>
+    <line class="fig" x1="16" y1="63" x2="10" y2="78"/><line class="fig" x1="10" y1="78" x2="10" y2="88"/>
+    <!-- Hip push direction -->
+    <line class="fig" x1="80" y1="72" x2="74" y2="92"/><line class="fig" x1="80" y1="72" x2="86" y2="90"/>
+    <path class="arrow" d="M 60,72 L 30,80"/>
+    <text class="label" x="0" y="110">Hüfte weg drücken</text>
+  </g>
+  <g transform="translate(240,30)">
+    <!-- Result position -->
+    <circle class="fig-head" cx="16" cy="50" r="8"/>
+    <line class="fig" x1="22" y1="54" x2="62" y2="62"/>
+    <line class="fig" x1="42" y1="58" x2="50" y2="76"/><line class="fig" x1="50" y1="76" x2="56" y2="84"/>
+    <line class="fig" x1="16" y1="57" x2="10" y2="72"/><line class="fig" x1="10" y1="72" x2="10" y2="82"/>
+    <line class="fig" x1="62" y1="62" x2="52" y2="82"/><line class="fig" x1="52" y1="82" x2="46" y2="88"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="88" x2="100" y2="88"/>
+    <text class="label" x="4" y="102">Resultat</text>
+  </g>
+`);
+
+// 25 Bridge
+SVG[25]=s(400,160,`
+  <text class="label" x="8" y="14">BRIDGE — HÜFTBRÜCKE</text>
+  <!-- Flat start -->
+  <g transform="translate(20,70)">
+    <circle class="fig-head" cx="14" cy="28" r="8"/>
+    <line class="fig" x1="20" y1="32" x2="80" y2="38"/>
+    <line class="fig" x1="50" y1="35" x2="44" y2="50"/><line class="fig" x1="50" y1="35" x2="56" y2="50"/>
+    <line class="fig" x1="16" y1="35" x2="10" y2="50"/><line class="fig" x1="10" y1="50" x2="10" y2="60"/>
+    <line class="fig" x1="80" y1="38" x2="74" y2="60"/><line class="fig" x1="74" y1="60" x2="68" y2="66"/>
+    <line class="fig" x1="80" y1="38" x2="86" y2="60"/><line class="fig" x1="86" y1="60" x2="90" y2="66"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="66" x2="100" y2="66"/>
+    <text class="label" x="10" y="80">Start</text>
+  </g>
+  <!-- Bridged -->
+  <g transform="translate(200,30)">
+    <circle class="fig-head" cx="14" cy="78" r="8"/>
+    <line class="fig" x1="20" y1="78" x2="70" y2="55"/>
+    <line class="fig" x1="70" y1="55" x2="110" y2="68"/>
+    <line class="fig" x1="16" y1="82" x2="10" y2="98"/><line class="fig" x1="10" y1="98" x2="10" y2="106"/>
+    <line class="fig" x1="110" y1="68" x2="104" y2="92"/><line class="fig" x1="104" y1="92" x2="98" y2="106"/>
+    <line class="fig" x1="110" y1="68" x2="116" y2="90"/><line class="fig" x1="116" y1="90" x2="120" y2="106"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="106" x2="140" y2="106"/>
+    <path class="arrow" d="M 70,55 L 70,35"/>
+    <text class="label" x="26" y="120">Hüfte hoch! Explosiv!</text>
+  </g>
+`);
+
+// 26 Kossack Squat
+SVG[26]=s(400,160,`
+  <text class="label" x="8" y="14">KOSSACK-KNIEBEUGEN</text>
+  <g transform="translate(20,20)">
+    <circle class="fig-head" cx="80" cy="18" r="8"/>
+    <line class="fig" x1="80" y1="26" x2="80" y2="70"/>
+    <line class="fig" x1="80" y1="45" x2="60" y2="60"/><line class="fig" x1="80" y1="45" x2="100" y2="60"/>
+    <line class="fig" x1="80" y1="70" x2="40" y2="98"/><line class="fig" x1="40" y1="98" x2="26" y2="108"/>
+    <line class="fig" x1="80" y1="70" x2="120" y2="98"/><line class="fig" x1="120" y1="98" x2="134" y2="108"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="10" y1="108" x2="150" y2="108"/>
+    <text class="label" x="30" y="124">Breiter Stand</text>
+  </g>
+  <g transform="translate(220,20)">
+    <circle class="fig-head" cx="60" cy="38" r="8"/>
+    <line class="fig" x1="60" y1="46" x2="60" y2="82"/>
+    <line class="fig" x1="60" y1="60" x2="42" y2="68"/><line class="fig" x1="60" y1="60" x2="78" y2="68"/>
+    <!-- bent side -->
+    <line class="fig" x1="60" y1="82" x2="40" y2="104"/><line class="fig" x1="40" y1="104" x2="30" y2="112"/>
+    <!-- straight side -->
+    <line class="fig" x1="60" y1="82" x2="98" y2="84"/><line class="fig" x1="98" y1="84" x2="112" y2="84"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="10" y1="112" x2="130" y2="112"/>
+    <text class="label" x="16" y="128">Eine Seite gestreckt</text>
+  </g>
+`);
+
+// 27 Scorpion Stretch
+SVG[27]=s(400,160,`
+  <text class="label" x="8" y="14">SCORPION STRETCH — ROTATION</text>
+  <g transform="translate(80,30)">
+    <circle class="fig-head" cx="50" cy="30" r="8"/>
+    <!-- Lying face down, arms T -->
+    <line class="fig" x1="50" y1="38" x2="50" y2="85"/>
+    <line class="fig" x1="50" y1="55" x2="10" y2="55"/><line class="fig" x1="50" y1="55" x2="90" y2="55"/>
+    <line class="fig" x1="50" y1="85" x2="38" y2="110"/><line class="fig" x1="50" y1="85" x2="62" y2="110"/>
+    <!-- scorpion leg swinging over -->
+    <line style="stroke:rgba(196,169,109,.9);stroke-width:2.5;stroke-linecap:round" x1="38" y1="110" x2="78" y2="70"/>
+    <circle class="accent" cx="78" cy="70" r="4" opacity=".8"/>
+    <path class="arrow" d="M 38,110 A 40,40 0 0,1 78,70"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="120" x2="110" y2="120"/>
+    <text class="label" x="5" y="138">Bein über Körper schwingen</text>
+  </g>
+`);
+
+// 28 Shadow Kicks
+SVG[28]=s(400,160,`
+  <text class="label" x="8" y="14">SHADOW-KICKS — ROUNDHOUSE</text>
+  <g transform="translate(100,15)">
+    <circle class="fig-head" cx="60" cy="16" r="9"/>
+    <line class="fig" x1="60" y1="25" x2="60" y2="72"/>
+    <line class="fig" x1="60" y1="45" x2="42" y2="60"/><line class="fig" x1="60" y1="45" x2="78" y2="60"/>
+    <!-- Stand leg -->
+    <line class="fig" x1="60" y1="72" x2="48" y2="104"/><line class="fig" x1="48" y1="104" x2="42" y2="114"/>
+    <!-- Kicking leg elevated -->
+    <line class="fig" x1="60" y1="72" x2="90" y2="62"/><line class="fig" x1="90" y1="62" x2="136" y2="44"/>
+    <!-- kick arc -->
+    <path style="stroke:rgba(196,169,109,.5);stroke-width:1;stroke-dasharray:5 3;fill:none" d="M 60,72 A 80,80 0 0,1 136,44"/>
+    <circle class="accent" cx="136" cy="44" r="4" opacity=".9"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="20" y1="114" x2="120" y2="114"/>
+    <text class="label" x="30" y="132">Roundhouse Kick</text>
+  </g>
+`);
+
+// 29 Slip Rope
+SVG[29]=s(400,160,`
+  <text class="label" x="8" y="14">SLIP ROPE — HEAD MOVEMENT</text>
+  <!-- Rope line -->
+  <line style="stroke:#5a5a5a;stroke-width:2;stroke-dasharray:8 4" x1="20" y1="72" x2="380" y2="72"/>
+  <text class="label" x="160" y="68">Seil auf Schulterhöhe</text>
+  <!-- Person slipping under -->
+  <g transform="translate(140,30)">
+    <circle class="fig-head" cx="40" cy="55" r="8"/>
+    <line class="fig" x1="40" y1="63" x2="40" y2="95"/>
+    <line class="fig" x1="40" y1="75" x2="24" y2="82"/><line class="fig" x1="40" y1="75" x2="56" y2="82"/>
+    <line class="fig" x1="40" y1="95" x2="28" y2="116"/><line class="fig" x1="40" y1="95" x2="52" y2="116"/>
+    <line class="fig" x1="28" y1="116" x2="22" y2="124"/><line class="fig" x1="52" y1="116" x2="58" y2="124"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="124" x2="80" y2="124"/>
+    <path class="arrow" d="M 80,55 L 100,55"/>
+    <text class="label" x="0" y="140">Unter Seil durch</text>
+  </g>
+`);
+
+// 30 Footwork Drills
+SVG[30]=s(400,160,`
+  <text class="label" x="8" y="14">FOOTWORK — MUSTER</text>
+  <!-- Grid footwork pattern -->
+  <g transform="translate(50,30)">
+    <!-- Start foot position -->
+    <ellipse style="stroke:#c4a96d;stroke-width:1.5;fill:rgba(196,169,109,.2)" cx="80" cy="100" rx="10" ry="6"/>
+    <ellipse style="stroke:#c4a96d;stroke-width:1.5;fill:rgba(196,169,109,.2)" cx="100" cy="110" rx="10" ry="6"/>
+    <!-- movement arrows -->
+    <path class="arrow" d="M 90,95 L 90,65"/>
+    <path class="arrow" d="M 50,90 L 80,90"/>
+    <path class="arrow" d="M 130,90 L 100,90"/>
+    <path class="arrow" d="M 90,115 L 90,130"/>
+    <!-- target positions -->
+    <ellipse style="stroke:rgba(196,169,109,.4);stroke-width:1;fill:none;stroke-dasharray:3 2" cx="80" cy="60" rx="10" ry="6"/>
+    <ellipse style="stroke:rgba(196,169,109,.4);stroke-width:1;fill:none;stroke-dasharray:3 2" cx="100" cy="68" rx="10" ry="6"/>
+    <text class="label" x="50" y="26">Vorwärts</text>
+    <text class="label" x="4" y="94">Links</text>
+    <text class="label" x="118" y="94">Rechts</text>
+    <text class="label" x="50" y="145">Rückwärts</text>
+  </g>
+`);
+
+// 31 Wrestler Bridges
+SVG[31]=s(400,160,`
+  <text class="label" x="8" y="14">WRESTLER BRIDGE — NACKEN</text>
+  <g transform="translate(80,20)">
+    <circle class="fig-head" cx="20" cy="68" r="9"/>
+    <line class="fig" x1="26" y1="64" x2="90" y2="44"/>
+    <line class="fig" x1="90" y1="44" x2="120" y2="56"/>
+    <line class="fig" x1="16" y1="74" x2="10" y2="92"/><line class="fig" x1="10" y1="92" x2="10" y2="100"/>
+    <line class="fig" x1="120" y1="56" x2="110" y2="84"/><line class="fig" x1="110" y1="84" x2="104" y2="100"/>
+    <line class="fig" x1="120" y1="56" x2="130" y2="82"/><line class="fig" x1="130" y1="82" x2="134" y2="100"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="100" x2="160" y2="100"/>
+    <!-- Head on ground indicator -->
+    <circle style="stroke:rgba(196,169,109,.6);stroke-width:1.5;fill:rgba(196,169,109,.1)" cx="20" cy="80" r="12"/>
+    <text class="label" x="0" y="118">Kopf als Stützpunkt</text>
+    <text style="fill:#e07060;font-family:monospace;font-size:9px" x="0" y="132">⚠ Nur für Fortgeschrittene</text>
+  </g>
+`);
+
+// 32 Granby Roll
+SVG[32]=s(400,160,`
+  <text class="label" x="8" y="14">GRANBY ROLL — SCHULTERROLLE</text>
+  <g transform="translate(30,30)">
+    <!-- Start on back -->
+    <circle class="fig-head" cx="16" cy="55" r="8"/>
+    <line class="fig" x1="22" y1="58" x2="80" y2="65"/>
+    <line class="fig" x1="50" y1="62" x2="44" y2="80"/><line class="fig" x1="50" y1="62" x2="56" y2="80"/>
+    <line class="fig" x1="16" y1="62" x2="10" y2="78"/><line class="fig" x1="10" y1="78" x2="10" y2="86"/>
+    <text class="label" x="4" y="102">Start</text>
+  </g>
+  <!-- Roll arrow -->
+  <path style="stroke:#c4a96d;stroke-width:2;fill:none;stroke-dasharray:6 3" d="M 120,65 A 50,30 0 0,1 200,55"/>
+  <path class="accent" d="M 196,48 L 200,56 L 204,48 Z"/>
+  <g transform="translate(210,20)">
+    <!-- End inverted -->
+    <circle class="fig-head" cx="16" cy="42" r="8"/>
+    <line class="fig" x1="22" y1="46" x2="68" y2="55"/>
+    <line class="fig" x1="44" y1="50" x2="38" y2="30"/><line class="fig" x1="44" y1="50" x2="50" y2="30"/>
+    <line class="fig" x1="16" y1="49" x2="10" y2="65"/><line class="fig" x1="10" y1="65" x2="10" y2="74"/>
+    <text class="label" x="4" y="90">Inversion</text>
+  </g>
+`);
+
+// 33 Penetration Step
+SVG[33]=s(400,160,`
+  <text class="label" x="8" y="14">PENETRATION STEP — TAKEDOWN</text>
+  <g transform="translate(50,20)">
+    <!-- Upright stance -->
+    <circle class="fig-head" cx="50" cy="16" r="8"/>
+    <line class="fig" x1="50" y1="24" x2="50" y2="70"/>
+    <line class="fig" x1="50" y1="42" x2="34" y2="58"/><line class="fig" x1="50" y1="42" x2="66" y2="58"/>
+    <line class="fig" x1="50" y1="70" x2="38" y2="100"/><line class="fig" x1="50" y1="70" x2="62" y2="100"/>
+    <line class="fig" x1="38" y1="100" x2="32" y2="108"/><line class="fig" x1="62" y1="100" x2="68" y2="108"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="14" y1="108" x2="86" y2="108"/>
+    <text class="label" x="24" y="124">Aufrecht</text>
+  </g>
+  <!-- Arrow -->
+  <path class="arrow" d="M 130,80 L 180,80"/>
+  <!-- Low level change penetration -->
+  <g transform="translate(200,20)">
+    <circle class="fig-head" cx="50" cy="36" r="8"/>
+    <line class="fig" x1="50" y1="44" x2="50" y2="78"/>
+    <line class="fig" x1="50" y1="58" x2="32" y2="70"/><line class="fig" x1="50" y1="58" x2="68" y2="70"/>
+    <!-- Lead knee on ground -->
+    <line class="fig" x1="50" y1="78" x2="68" y2="100"/><line class="fig" x1="68" y1="100" x2="74" y2="110"/>
+    <line class="fig" x1="50" y1="78" x2="32" y2="95"/>
+    <circle class="accent" cx="32" cy="95" r="4" opacity=".9"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="14" y1="110" x2="90" y2="110"/>
+    <text class="label" x="8" y="126">Knie auf Boden</text>
+    <text style="fill:#c4a96d;font-family:monospace;font-size:9px" x="8" y="138">Level Change!</text>
+  </g>
+`);
+
+// 34 Neck Bridges
+SVG[34]=s(400,160,`
+  <text class="label" x="8" y="14">NECK BRIDGES — FORTGESCHRITTEN</text>
+  <g transform="translate(80,20)">
+    <circle class="fig-head" cx="28" cy="64" r="9"/>
+    <line class="fig" x1="30" y1="55" x2="90" y2="38"/>
+    <line class="fig" x1="90" y1="38" x2="122" y2="50"/>
+    <line class="fig" x1="24" y1="70" x2="15" y2="90"/><line class="fig" x1="15" y1="90" x2="12" y2="100"/>
+    <line class="fig" x1="122" y1="50" x2="112" y2="80"/><line class="fig" x1="112" y1="80" x2="106" y2="100"/>
+    <line class="fig" x1="122" y1="50" x2="132" y2="78"/><line class="fig" x1="132" y1="78" x2="136" y2="100"/>
+    <line style="stroke:#3a3a3a;stroke-width:1" x1="0" y1="100" x2="160" y2="100"/>
+    <!-- Warning box -->
+    <rect style="stroke:#c0392b;stroke-width:1;fill:rgba(192,57,43,.1)" x="0" y="110" width="160" height="28" rx="2"/>
+    <text style="fill:#e07060;font-family:monospace;font-size:9px" x="6" y="122">⚠ NUR für erfahrene Athleten</text>
+    <text style="fill:#e07060;font-family:monospace;font-size:9px" x="6" y="134">Langsam aufbauen!</text>
+  </g>
+`);
+
+// ══════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════
+const EXERCISES = [
+  {id:1,name:"Burpee",level:"intermediate",sport:["mma"],cat:"conditioning",
+   desc:"Eine der effizientesten Ganzkörperübungen für Kampfsportler – vier Phasen in einer.",
+   steps:["Stehe aufrecht, Füße schulterbreit.","Beuge dich nach unten, Hände neben die Füße.","Springe die Beine nach hinten in den Liegestütz.","Führe einen Liegestütz aus.","Springe explosiv hoch mit erhobenen Armen."],
+   muscles:["Brust","Schultern","Trizeps","Rumpf","Oberschenkel","Waden"],
+   sets:"3–5",reps:"10–15",
+   tip:"Simuliert das Aufstehen nach einem Takedown und trainiert Explosivität für Takedown-Angriffe."},
+  {id:2,name:"Liegestütz",level:"beginner",sport:["mma","boxing","bjj"],cat:"strength",
+   desc:"Der Klassiker für Oberkörperkraft – unverzichtbar für alle Kampfsportarten.",
+   steps:["Hochstütz: Hände schulterbreit, Körper gerade.","Senke langsam die Brust zum Boden.","Ellbogen 45° vom Körper halten.","Explosive Aufwärtsbewegung bis zur vollen Streckung."],
+   muscles:["Brust","Schultern","Trizeps","Rumpf"],
+   sets:"3–4",reps:"10–20",
+   tip:"Trainiert die Push-Kraft für Stöße und Abwehrtechniken im Standup."},
+  {id:3,name:"Explosive Liegestütz",level:"advanced",sport:["mma","boxing"],cat:"strength",
+   desc:"Plyometrische Variante für maximale Oberkörper-Explosivität.",
+   steps:["Normale Liegestütz-Position einnehmen.","Senke dich schnell ab.","Explodiere so kraftvoll hoch, dass Hände abheben.","Weich landen, sofort in nächste Wiederholung."],
+   muscles:["Brust","Schultern","Trizeps","Schnellkraftfasern"],
+   sets:"3–4",reps:"5–8",
+   tip:"Direkter Übertrag auf Explosivstöße und Abwehrkraft im Boxen."},
+  {id:4,name:"Dips",level:"intermediate",sport:["mma","boxing"],cat:"strength",
+   desc:"Trizeps- und Schulterstärke für kraftvolle Armarbeit.",
+   steps:["Auf Bank oder Stuhl setzen, Hände neben Hüften.","Hebe dich an und gehe vom Rand.","Ellbogen auf 90° beugen, Rücken nahe der Unterlage.","Strecke die Arme wieder vollständig."],
+   muscles:["Trizeps","Schultern","Brust"],
+   sets:"3",reps:"8–15",
+   tip:"Essentiell für Push-Kraft im Clinch und beim Abdrücken des Gegners."},
+  {id:5,name:"Pike-Liegestütz",level:"intermediate",sport:["mma","bjj"],cat:"strength",
+   desc:"Schulterfokussierte Variante für Overhead-Kraft.",
+   steps:["Hochstütz, dann Hüfte hochheben (invertiertes V).","Oberkopf Richtung Boden senken.","Schultern als Hauptmuskel arbeiten lassen.","Zurück zur Ausgangsposition."],
+   muscles:["Schultern","Trizeps","obere Brust"],
+   sets:"3",reps:"8–12",
+   tip:"Stärkt Schultern für Würgetechniken und Schulter-Clinch im Ringen."},
+  {id:6,name:"Kniebeugen",level:"beginner",sport:["mma","boxing","bjj"],cat:"strength",
+   desc:"König der Unterkörperübungen – Basis für alle Kampfsportarten.",
+   steps:["Füße schulterbreit, Zehen leicht nach außen.","Knie über Zehen schieben, nicht nach innen fallen.","Oberschenkel mindestens parallel zum Boden.","Explosive Aufwärtsbewegung, Gesäß oben anspannen."],
+   muscles:["Quadrizeps","Gesäß","Hamstrings","Waden","Rumpf"],
+   sets:"3–5",reps:"15–25",
+   tip:"Beingrundkraft für Stance, Footwork, Takedowns und Sprünge."},
+  {id:7,name:"Jump Squats",level:"intermediate",sport:["mma","boxing"],cat:"conditioning",
+   desc:"Plyometrische Kniebeugen für explosive Beinkraft.",
+   steps:["Kniebeuge-Position einnehmen.","Explosiv abspringen, Arme schwingen mit.","Weich landen mit leicht gebeugten Knien.","Sofort in nächste Wiederholung."],
+   muscles:["Quadrizeps","Gesäß","Waden","Hüfte"],
+   sets:"3–4",reps:"10–15",
+   tip:"Explosivkraft für Levelchanges und Takedown-Antrieb."},
+  {id:8,name:"Ausfallschritte",level:"beginner",sport:["mma","boxing","bjj"],cat:"strength",
+   desc:"Einseitige Beinarbeit für Stabilität und Kraft.",
+   steps:["Schritt nach vorne, Knie ca. 90° beugen.","Hinteres Knie fast den Boden berühren.","Rücken gerade, Kern angespannt.","Zurück, dann Seite wechseln."],
+   muscles:["Quadrizeps","Gesäß","Hamstrings","Stabilisatoren"],
+   sets:"3",reps:"10 pro Seite",
+   tip:"Trainiert einseitigen Antrieb für Footwork und Levelchange."},
+  {id:9,name:"Pistol Squat",level:"advanced",sport:["bjj","mma"],cat:"strength",
+   desc:"Einbeinige Kniebeuge als ultimativer Krafttest.",
+   steps:["Auf einem Bein stehen, anderes gestreckt nach vorne.","Langsam in die volle Hocke auf einem Bein.","Ferse am Boden halten, Knie über Zehe.","Explosiv wieder hochkommen."],
+   muscles:["Quadrizeps","Gesäß","Knöchel","Rumpf"],
+   sets:"3",reps:"3–8 pro Seite",
+   tip:"Einseitige Stabilität für Guard-Arbeit und Hip-Escapes."},
+  {id:10,name:"Klimmzüge",level:"intermediate",sport:["mma","bjj"],cat:"strength",
+   desc:"Rücken- und Zugkraft – entscheidend für Clinch und Würgetechniken.",
+   steps:["Überkopfgriff an Stange, Hände schulterbreit+.","Ziehe hoch bis Kinn über der Stange.","Schulterblätter oben zusammenziehen.","Langsam zurück zur Streckung."],
+   muscles:["Latissimus","Bizeps","hintere Schulter","Rumpf"],
+   sets:"3–4",reps:"5–12",
+   tip:"Zug-Kraft ist fundamental für Clinch, Würgetechniken und Guard-Retention."},
+  {id:11,name:"Chin-Ups",level:"intermediate",sport:["bjj","mma"],cat:"strength",
+   desc:"Untergriff-Variante mit mehr Bizeps-Beteiligung.",
+   steps:["Untergriff an Stange, Hände schulterbreit.","Ziehe hoch, Ellbogen an den Körper.","Kinn über Stange, Brust zur Stange.","Kontrolliert zurück."],
+   muscles:["Bizeps","Latissimus","Rumpf"],
+   sets:"3",reps:"5–10",
+   tip:"Bizepskraft für alle Grifftechniken, besonders im BJJ und Ringen."},
+  {id:12,name:"Mountain Climbers",level:"beginner",sport:["mma","boxing","bjj"],cat:"conditioning",
+   desc:"Herz-Kreislauf-Training und Rumpfstabilität kombiniert.",
+   steps:["Hochstütz-Position einnehmen.","Abwechselnd Knie zur Brust ziehen.","Hüfte flach halten, keine Rotation.","Zügiges Tempo für Ausdauerwirkung."],
+   muscles:["Rumpf","Hüftbeuger","Schultern"],
+   sets:"3–4",reps:"30–60 Sek.",
+   tip:"Simuliert dynamische Bodenbewegungen im BJJ."},
+  {id:13,name:"Schattenboxen",level:"beginner",sport:["boxing","mma"],cat:"conditioning",
+   desc:"Technik und Ausdauer kombiniert – der Grundstein des Boxens.",
+   steps:["Kampfhaltung einnehmen, Hände hoch.","Kombinationen flüssig werfen (Jab, Cross, Hook, Uppercut).","Konstante Fußarbeit, nie stillstehen.","Intensität alle 30 Sek. variieren."],
+   muscles:["Schultern","Rumpf","Waden","Hüfte","Herz-Kreislauf"],
+   sets:"3–6",reps:"2–3 Min. Runden",
+   tip:"Das Schattenboxen ist die wichtigste Einzelübung für Boxer und MMA-Kämpfer."},
+  {id:14,name:"Box-Jumps",level:"intermediate",sport:["mma","boxing"],cat:"conditioning",
+   desc:"Explosive Sprungkraft auf eine erhöhte Fläche.",
+   steps:["Stehe vor einem stabilen Kasten oder Stuhl.","Kniebeuge, dann explosiv auf die Box.","Weich landen, aufrechte Position.","Sicher heruntersteigen."],
+   muscles:["Gesäß","Quadrizeps","Waden","Explosivkette"],
+   sets:"3–4",reps:"8–12",
+   tip:"Übertragen sich auf Levelchanges und Kick-Kraft."},
+  {id:15,name:"Jumping Jacks",level:"beginner",sport:["mma","boxing","bjj"],cat:"conditioning",
+   desc:"Klassisches Aufwärm- und Konditionierungsmittel.",
+   steps:["Aufrecht stehen, Arme an Seiten.","Beine spreizen und Arme über Kopf.","Zurück zur Ausgangsposition.","Gleichmäßiges Tempo."],
+   muscles:["Waden","Schultern","Herz-Kreislauf"],
+   sets:"2–3",reps:"30–60 Sek.",
+   tip:"Ideal als Aufwärmen und für aktive Erholungstage."},
+  {id:16,name:"Bear Crawl",level:"intermediate",sport:["mma","bjj"],cat:"conditioning",
+   desc:"Ganzkörperkondition auf allen Vieren – spezifisch für Bodenarbeit.",
+   steps:["Auf Händen und Füßen, Knie 5cm vom Boden.","Rechte Hand und linkes Bein gleichzeitig vorwärts.","Dann linke Hand und rechtes Bein.","Körper parallel zum Boden halten."],
+   muscles:["Schultern","Rumpf","Hüfte","Koordination"],
+   sets:"3",reps:"20–30m oder 30 Sek.",
+   tip:"Direkter Übertrag auf Positionswechsel und Scramble-Situationen."},
+  {id:17,name:"Tuck Jumps",level:"intermediate",sport:["mma","boxing"],cat:"conditioning",
+   desc:"Hochsprung mit Knie-Anzug für explosive Beinkraft.",
+   steps:["Aufrecht stehen.","Explosiv springen, beide Knie zur Brust ziehen.","Arme für Balance strecken.","Weich landen."],
+   muscles:["Hüftbeuger","Quadrizeps","Gesäß","Waden"],
+   sets:"3",reps:"10–15",
+   tip:"Entwickelt Beinpower für hohe Kicks."},
+  {id:18,name:"Plank",level:"beginner",sport:["mma","boxing","bjj"],cat:"strength",
+   desc:"Isometrische Rumpfstabilität – Fundament aller Bewegungen.",
+   steps:["Unterarmstütz oder Hochstütz.","Körper gerade von Kopf bis Fersen.","Gesäß nicht hochschieben.","Gleichmäßig atmen."],
+   muscles:["Rumpf","Schultern","Gesäß"],
+   sets:"3–5",reps:"30–90 Sek.",
+   tip:"Rumpfspannung ist Voraussetzung für effiziente Schläge und Takedown-Abwehr."},
+  {id:19,name:"Side Plank",level:"intermediate",sport:["bjj","mma"],cat:"strength",
+   desc:"Laterale Rumpfstabilität für einseitige Stabilisierung.",
+   steps:["Seitliche Stützposition auf einem Unterarm.","Hüfte hochschieben, Körper gerade.","Freien Arm nach oben strecken.","Position halten oder Hüfte ab/auf bewegen."],
+   muscles:["Seitlicher Rumpf","Gesäß","Schultern"],
+   sets:"3",reps:"20–45 Sek. pro Seite",
+   tip:"Laterale Rumpfkraft für Hip-Escapes und Bridging am Boden."},
+  {id:20,name:"Hollow Body Hold",level:"intermediate",sport:["bjj","mma","boxing"],cat:"strength",
+   desc:"Gymnastics-Übung für maximale Rumpfintegration.",
+   steps:["Auf dem Rücken, Arme gestreckt über Kopf.","Beine und Schultern gleichzeitig heben.","Unterer Rücken bleibt am Boden.","Bananenförmige Körperspannung halten."],
+   muscles:["Hüftbeuger","Rumpf","Schultern","Quermuskel"],
+   sets:"3–4",reps:"20–45 Sek.",
+   tip:"Die ultimative Rumpfübung für effiziente Kraftübertragung."},
+  {id:21,name:"L-Sit Hold",level:"advanced",sport:["bjj","mma"],cat:"strength",
+   desc:"Isometrisches Halten in L-Position für extremen Rumpf und Hüftbeuger.",
+   steps:["Auf Stühlen oder Parallelstangen stützen.","Beine gerade nach vorne anheben (90°).","Körper strecken, Schultern runterdrücken.","So lange wie möglich halten."],
+   muscles:["Hüftbeuger","Rumpf","Trizeps","Schultern"],
+   sets:"3–5",reps:"5–20 Sek.",
+   tip:"Spezifisch für Guard-Retention und aktive Hüftkontrolle im BJJ."},
+  {id:22,name:"Sit-Ups Kampfsport",level:"beginner",sport:["mma","bjj"],cat:"strength",
+   desc:"Klassische Bauchübung mit Kampfsport-Fokus.",
+   steps:["Auf dem Rücken, Knie gebeugt, Hände an Schläfen.","Aufsetzen bis Ellbogen die Knie berühren.","Ellbogen auf dem Weg runter nach außen.","Langsam zurück, nicht fallen lassen."],
+   muscles:["Bauchmuskeln","Hüftbeuger"],
+   sets:"3–4",reps:"15–30",
+   tip:"Bauchkraft für Aufstehen aus ungünstigen Positionen und Bridging."},
+  {id:23,name:"Hip Circles",level:"beginner",sport:["bjj","mma"],cat:"mobility",
+   desc:"Hüftmobilität für tiefe Positionen und Bodenarbeit.",
+   steps:["Auf dem Rücken oder im Vierfüsslerstand.","Hüfte in großen Kreisen bewegen.","Beide Richtungen, langsam und kontrolliert.","Einschränkungen suchen und verweilen."],
+   muscles:["Hüftbeuger","Außenrotatoren","Leistenbereich"],
+   sets:"2–3",reps:"10–15 Kreise pro Seite",
+   tip:"Hüftmobilität ist entscheidend für Shooting, Guard-Arbeit und Leglock-Positionen."},
+  {id:24,name:"Shrimp (Garnele)",level:"intermediate",sport:["bjj"],cat:"mobility",
+   desc:"Die fundamentale BJJ-Bodenbewegung für Escapes.",
+   steps:["Auf dem Rücken liegen.","Auf eine Seite rollen, unteres Knie hochziehen.","Hüfte seitlich wegdrücken, Ferse aufstoßen.","Oberkörper in entgegengesetzte Richtung bewegen."],
+   muscles:["Hüfte","Gesäß","Rumpf"],
+   sets:"3",reps:"10–15m oder 20 Wdh.",
+   tip:"Die wichtigste Einzelbewegung für Guard-Retention und Escapes im BJJ."},
+  {id:25,name:"Bridge",level:"beginner",sport:["mma","bjj"],cat:"mobility",
+   desc:"Hüft-Extension für Bridging-Escapes und posteriore Kette.",
+   steps:["Auf dem Rücken, Knie gebeugt, Füße flach.","Hüfte explosiv hochdrücken auf Schultern und Füßen.","Gesäß und Rumpf maximal anspannen.","Kontrolliert absenken."],
+   muscles:["Gesäß","Hamstrings","unterer Rücken"],
+   sets:"3",reps:"15–25 oder 30–60 Sek.",
+   tip:"Bridge-Bewegungen sind A und O für Escapes aus Mount und Side Control."},
+  {id:26,name:"Kossack-Kniebeugen",level:"intermediate",sport:["bjj","mma"],cat:"mobility",
+   desc:"Seitliche Kniebeugen für Leisten- und Hüftmobilität.",
+   steps:["Breiter Stand, Zehen leicht nach außen.","Auf eine Seite absenken, Knie über Zehe.","Andere Seite gestreckt, Ferse unten.","Zwischen Seiten wechseln."],
+   muscles:["Adduktoren","Hüftbeuger","Quadrizeps"],
+   sets:"2–3",reps:"8–12 pro Seite",
+   tip:"Leistenflexibilität für Shooting und Leglock-Verteidigungen."},
+  {id:27,name:"Scorpion Stretch",level:"beginner",sport:["mma","bjj","boxing"],cat:"mobility",
+   desc:"Thorax-Rotation und untere Rückenflexibilität.",
+   steps:["Auf dem Bauch, Arme in T-Position.","Rechtes Bein über linke Seite schwingen, Fuß zum Boden.","Blick in entgegengesetzte Richtung.","Halten, dann Seite wechseln."],
+   muscles:["Wirbelsäulen-Rotatoren","Piriformis","Hüftbeuger"],
+   sets:"2",reps:"30–45 Sek. pro Seite",
+   tip:"Rumpfrotation ist die Quelle von Schlag- und Trittkraft."},
+  {id:28,name:"Shadow Kicks",level:"beginner",sport:["boxing","mma"],cat:"conditioning",
+   desc:"Tritt-Technik ohne Partner für Kondition und Technikentwicklung.",
+   steps:["Kampfhaltung einnehmen.","Verschiedene Tritte ausführen: Roundhouse, Front, Side.","Jeden Tritt mit Fußarbeit verbinden.","Volle Intensität wie gegen einen Gegner."],
+   muscles:["Hüfte","Quadrizeps","Gesäß","Gleichgewicht"],
+   sets:"3–5",reps:"2 Min. Runden",
+   tip:"Entwickelt Technik, Gleichgewicht und Tritt-Kondition gleichzeitig."},
+  {id:29,name:"Slip Rope Drill",level:"intermediate",sport:["boxing","mma"],cat:"conditioning",
+   desc:"Ausweichbewegungen unter einer Linie für Defensiv-Kondition.",
+   steps:["Stelle dir eine Linie auf Schulternhöhe vor.","Seitlich darunter durchbewegen.","Hände schützend am Gesicht.","Gegenangriff nach dem Slip kombinieren."],
+   muscles:["Beine","Rumpf","Schultern","Nacken"],
+   sets:"3",reps:"2 Min. Runden",
+   tip:"Head-Movement unterscheidet gute von großartigen Boxern."},
+  {id:30,name:"Footwork Drills",level:"beginner",sport:["boxing","mma"],cat:"conditioning",
+   desc:"Grundlegende Fußarbeitsmuster für den Standup-Kampf.",
+   steps:["Kampfhaltung einnehmen.","Vorwärts/Rückwärts in Kampfhaltung bewegen.","Seitliche Schrittkombinationen.","Pivot-Bewegungen auf dem vorderen Fuß."],
+   muscles:["Waden","Oberschenkel","Gleichgewicht","Reaktion"],
+   sets:"3–4",reps:"2 Min. Runden",
+   tip:"Fußarbeit ist die Basis aller Standup-Kampfkünste."},
+  {id:31,name:"Wrestler Bridges",level:"intermediate",sport:["bjj","mma"],cat:"strength",
+   desc:"Nacken-Stärkung und Bridging-Power für Escape-Situationen.",
+   steps:["Auf dem Rücken, Knie gebeugt.","Bridge in volle Hüfthöhe.","Auf Kopf rollen (Nacken stärken, mit Vorsicht).","Alternative: nur Schultern-Bridge."],
+   muscles:["Nacken","Rücken","Gesäß","Rumpf"],
+   sets:"3",reps:"10–20",
+   tip:"Nackenstärke ist für Ringer und BJJ-Athleten überlebenswichtig."},
+  {id:32,name:"Granby Roll",level:"intermediate",sport:["bjj"],cat:"mobility",
+   desc:"Rollbewegung auf Schultern für Guard-Recovery und Inversions.",
+   steps:["Auf dem Rücken, Beine gebeugt.","Auf eine Schulter rollen.","Hüfte hochheben und über die Schulter rollen.","Position umkehren."],
+   muscles:["Nacken","Rumpf","Schultern","Hüfte"],
+   sets:"3",reps:"10 pro Seite",
+   tip:"Fundamentale Fluchtbewegung aus Back-Takes und Turtle-Position."},
+  {id:33,name:"Penetration Step",level:"intermediate",sport:["bjj","mma"],cat:"conditioning",
+   desc:"Das Shooting-Beinmuster für Takedowns.",
+   steps:["Aufrechter Stand, Kampfhaltung.","Levelchange mit tiefem Vorgehen.","Vorderes Knie auf den Boden (Lead-Knie).","Zurück in Stand – Explosivität trainieren."],
+   muscles:["Quadrizeps","Hüftbeuger","Gesäß"],
+   sets:"3–4",reps:"10–15 pro Seite",
+   tip:"Der Penetration Step ist der Motor jedes Takedowns – täglich üben."},
+  {id:34,name:"Neck Bridges",level:"advanced",sport:["bjj","mma"],cat:"strength",
+   desc:"Nacken-Kräftigung für Ringer und BJJ-Kämpfer.",
+   steps:["Vorsichtig! Auf dem Rücken, Hände neben dem Kopf.","Auf Kopf rollen, Körper gewölbt.","Sehr langsam, keine ruckartigen Bewegungen.","Nur für geübte Athleten."],
+   muscles:["Nacken","Trapez","oberer Rücken"],
+   sets:"2–3",reps:"5–10",
+   tip:"Starker Nacken verhindert Strangulation und schützt vor Würgedruck."},
+];
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let curFilter='all', modalEx=null;
+let curPlan={name:'',level:'intermediate',focus:'mma',days:3,duration:6,exercises:[]};
+let savedPlans=JSON.parse(localStorage.getItem('kk_plans')||'[]');
+let workoutLog=JSON.parse(localStorage.getItem('kk_log')||'[]');
+let timerState={running:false,interval:null,totalRounds:5,currentRound:1,workTime:180,restTime:60,prepTime:10,currentTime:10,phase:'prep',totalTime:10};
+
+// ══════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-links button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  ['home','exercises','builder','timer','progress'].forEach((p,i)=>{
+    if(p===id) document.querySelectorAll('.nav-links button')[i].classList.add('active');
+  });
+  if(id==='exercises') renderExercises();
+  if(id==='builder') renderBuilder();
+  if(id==='progress') renderProgress();
+}
+
+// ══════════════════════════════════════════════
+// EXERCISES
+// ══════════════════════════════════════════════
+function lvlLabel(l){return{beginner:'Anfänger',intermediate:'Fortgeschritten',advanced:'Profi'}[l]||l}
+function sportLabel(s){return{mma:'MMA',boxing:'Boxen',bjj:'BJJ'}[s]||s}
+function catLabel(c){return{strength:'Kraft',conditioning:'Kondition',mobility:'Mobilität'}[c]||c}
+
+function renderExercises(){
+  const grid=document.getElementById('exercise-grid');
+  const list=curFilter==='all'?EXERCISES:EXERCISES.filter(e=>
+    e.level===curFilter||e.sport.includes(curFilter)||e.cat===curFilter);
+  grid.innerHTML=list.map(e=>`
+    <div class="exercise-card" onclick="openModal(${e.id})">
+      <div class="card-illustration">${SVG[e.id]||''}</div>
+      <div class="card-body">
+        <div class="card-badges">
+          <span class="badge badge-${e.level}">${lvlLabel(e.level)}</span>
+          ${e.sport.map(s=>`<span class="badge badge-sport">${sportLabel(s)}</span>`).join('')}
+          <span class="badge badge-sport">${catLabel(e.cat)}</span>
+        </div>
+        <div class="card-title">${e.name}</div>
+        <div class="card-desc">${e.desc}</div>
+        <div class="card-meta">
+          <div class="card-meta-item">Sätze<span>${e.sets}</span></div>
+          <div class="card-meta-item">Wdh.<span>${e.reps}</span></div>
+        </div>
+        <button class="add-btn" onclick="event.stopPropagation();quickAdd(${e.id})">+ Zum Plan hinzufügen</button>
+      </div>
+    </div>`).join('');
+  document.querySelectorAll('#ex-filters .filter-btn').forEach(btn=>{
+    btn.onclick=()=>{curFilter=btn.dataset.filter;document.querySelectorAll('#ex-filters .filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderExercises()};
+  });
+}
+
+// ══════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════
+function openModal(id){
+  const e=EXERCISES.find(x=>x.id===id);if(!e)return;
+  modalEx=e;
+  document.getElementById('modal-illo').innerHTML=SVG[e.id]||'';
+  document.getElementById('modal-title').textContent=e.name;
+  document.getElementById('modal-desc').textContent=e.desc;
+  document.getElementById('modal-tip').textContent=e.tip;
+  document.getElementById('modal-badges').innerHTML=
+    `<span class="badge badge-${e.level}">${lvlLabel(e.level)}</span>`+
+    e.sport.map(s=>`<span class="badge badge-sport">${sportLabel(s)}</span>`).join('')+
+    `<span class="badge badge-sport">${catLabel(e.cat)}</span>`;
+  document.getElementById('modal-steps').innerHTML=e.steps.map((s,i)=>
+    `<li><span class="step-num">${String(i+1).padStart(2,'0')}</span><span>${s}</span></li>`).join('');
+  document.getElementById('modal-muscles').innerHTML=e.muscles.map(m=>`<span class="muscle-tag">${m}</span>`).join('');
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(ev){if(!ev||ev.target===document.getElementById('modal-overlay')) document.getElementById('modal-overlay').classList.remove('open')}
+function addModalToPlan(){if(modalEx){quickAdd(modalEx.id);closeModal()}}
+
+// ══════════════════════════════════════════════
+// PLAN BUILDER
+// ══════════════════════════════════════════════
+function quickAdd(id){
+  const e=EXERCISES.find(x=>x.id===id);if(!e)return;
+  if(curPlan.exercises.find(x=>x.id===id)){notify(`"${e.name}" bereits im Plan`);return}
+  curPlan.exercises.push({id,sets:e.sets,reps:e.reps});
+  notify(`"${e.name}" hinzugefügt`);
+  if(document.getElementById('page-builder').classList.contains('active')) renderBuilder();
+}
+
+function renderBuilder(){
+  // plan exercise list
+  const cont=document.getElementById('plan-exercises');
+  document.getElementById('plan-count').textContent=`${curPlan.exercises.length} Übungen`;
+  if(!curPlan.exercises.length){
+    cont.innerHTML=`<div class="empty-plan"><div class="empty-plan-icon">＋</div><p>Übungen aus der Bibliothek hinzufügen</p></div>`;
+  } else {
+    cont.innerHTML=curPlan.exercises.map((item,i)=>{
+      const e=EXERCISES.find(x=>x.id===item.id);
+      return `<div class="plan-ex-item">
+        <div class="pex-num">${String(i+1).padStart(2,'0')}</div>
+        <div class="pex-info">
+          <div class="pex-name">${e?e.name:'?'}</div>
+          <div class="pex-inputs">
+            <input class="si" type="text" value="${item.sets}" oninput="updSets(${i},'sets',this.value)" placeholder="Sätze">
+            <span class="si-lbl">×</span>
+            <input class="si" type="text" value="${item.reps}" oninput="updSets(${i},'reps',this.value)" placeholder="Wdh.">
+          </div>
+        </div>
+        <button class="rm-btn" onclick="remEx(${i})">✕</button>
+      </div>`;
+    }).join('');
+  }
+  // show/hide action buttons
+  const hasEx=curPlan.exercises.length>0;
+  document.getElementById('btn-gen-plan').style.display=hasEx?'':'none';
+  document.getElementById('btn-dl-pdf').style.display=hasEx?'':'none';
+
+  // saved plans
+  const sc=document.getElementById('saved-count');sc.textContent=savedPlans.length;
+  const sp=document.getElementById('saved-plans-list');
+  sp.innerHTML=savedPlans.length?savedPlans.map((p,i)=>`
+    <div class="saved-plan-item">
+      <div onclick="loadPlan(${i})" style="flex:1">
+        <div class="sp-name">${p.name||'Unbenannter Plan'}</div>
+        <div class="sp-meta">${p.exercises.length} Übungen · ${p.days} Tage/Wo · ${p.duration} Wo</div>
+      </div>
+      <div style="display:flex;gap:.4rem">
+        <button class="btn btn-sm btn-outline" onclick="loadPlan(${i})">Laden</button>
+        <button class="btn btn-sm btn-danger" onclick="delPlan(${i})">✕</button>
+      </div>
+    </div>`).join(''):'<div style="padding:2rem 1rem;text-align:center;color:var(--muted);font-size:.8rem">Noch keine Pläne</div>';
+}
+
+function updSets(i,k,v){curPlan.exercises[i][k]=v}
+function remEx(i){curPlan.exercises.splice(i,1);renderBuilder();document.getElementById('plan-preview').style.display='none'}
+function clearPlan(){curPlan={name:'',level:'intermediate',focus:'mma',days:3,duration:6,exercises:[]};document.getElementById('plan-name').value='';document.getElementById('plan-preview').style.display='none';renderBuilder()}
+function savePlan(){
+  curPlan.name=document.getElementById('plan-name').value||'Unbenannter Plan';
+  curPlan.level=document.getElementById('plan-level').value;
+  curPlan.focus=document.getElementById('plan-focus').value;
+  curPlan.days=parseInt(document.getElementById('plan-days').value);
+  curPlan.duration=parseInt(document.getElementById('plan-duration').value);
+  if(!curPlan.exercises.length){notify('Plan hat keine Übungen');return}
+  savedPlans.unshift({...curPlan,exercises:[...curPlan.exercises],savedAt:new Date().toISOString()});
+  localStorage.setItem('kk_plans',JSON.stringify(savedPlans));
+  notify(`"${curPlan.name}" gespeichert`);renderBuilder();
+}
+function loadPlan(i){curPlan={...savedPlans[i],exercises:[...savedPlans[i].exercises]};document.getElementById('plan-name').value=curPlan.name;document.getElementById('plan-level').value=curPlan.level;document.getElementById('plan-focus').value=curPlan.focus;document.getElementById('plan-days').value=curPlan.days;document.getElementById('plan-duration').value=curPlan.duration;renderBuilder();notify(`"${curPlan.name}" geladen`)}
+function delPlan(i){const n=savedPlans[i].name;savedPlans.splice(i,1);localStorage.setItem('kk_plans',JSON.stringify(savedPlans));notify(`"${n}" gelöscht`);renderBuilder()}
+
+// ══════════════════════════════════════════════
+// GENERATE STRUCTURED PLAN
+// ══════════════════════════════════════════════
+const DAY_NAMES=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+
+function buildSchedule(){
+  const days=parseInt(document.getElementById('plan-days').value)||3;
+  const dur=parseInt(document.getElementById('plan-duration').value)||6;
+  const exList=[...curPlan.exercises];
+  const n=exList.length;
+
+  // Assign training days to weekdays
+  // Spread evenly, rest days in between
+  const trainDays=[];
+  const gaps=Math.floor(7/days);
+  for(let i=0;i<days;i++) trainDays.push(i*gaps);
+
+  // Split exercises across training days per week
+  const perDay=Math.ceil(n/days);
+  const dayGroups=[];
+  for(let d=0;d<days;d++){
+    dayGroups.push(exList.slice(d*perDay,(d+1)*perDay));
+  }
+
+  // Build weeks (show week 1, then phases)
+  const schedule=[];
+  // Phase labels
+  const phases=[];
+  if(dur>=4){phases.push({weeks:'1–2',label:'Eingewöhnung',intensity:'60–70%',note:'Fokus auf Technik und saubere Ausführung. Lieber weniger Sätze, aber perfekte Form.'})}
+  if(dur>=6){phases.push({weeks:'3–4',label:'Aufbau',intensity:'70–80%',note:'Sätze und Intensität erhöhen. Pausen verkürzen auf 60–90 Sek.'})}
+  if(dur>=8){phases.push({weeks:'5–6',label:'Intensivierung',intensity:'80–90%',note:'Maximale Sätze. Plyometrische Varianten wo möglich einbauen.'})}
+  phases.push({weeks:dur>6?`${dur-1}–${dur}`:`${dur}`,label:'Peak / Test',intensity:'90–100%',note:'Maximale Leistung. Teste dein Max in Schlüsselübungen.'});
+
+  return {trainDays,dayGroups,phases,days,dur};
+}
+
+function generatePlan(){
+  curPlan.name=document.getElementById('plan-name').value||'Mein Trainingsplan';
+  curPlan.level=document.getElementById('plan-level').value;
+  curPlan.focus=document.getElementById('plan-focus').value;
+  curPlan.days=parseInt(document.getElementById('plan-days').value);
+  curPlan.duration=parseInt(document.getElementById('plan-duration').value);
+
+  if(!curPlan.exercises.length){notify('Zuerst Übungen hinzufügen');return}
+
+  const {trainDays,dayGroups,phases}=buildSchedule();
+  const focusLabel={mma:'MMA / Grappling',boxing:'Boxen / Kickboxen',bjj:'BJJ / Ringen',mixed:'Gemischt'}[curPlan.focus]||curPlan.focus;
+
+  const warmupTips=[
     '5–10 Min. Seil springen oder Jumping Jacks',
-    'Hüftkreise — 10 × pro Seite',
-    'Arm Circles vorwärts und rückwärts — 20 ×',
-    'Leichte Kniebeugen — 10–15 Wdh.',
+    'Hüftkreise (10× pro Seite)',
+    'Arm Circles vorwärts und rückwärts (20×)',
+    'Leichte Kniebeugen (10–15 Wdh.)',
     'Schattenboxen 2–3 Min. locker',
-]
-COOLDOWN = [
-    '5–10 Min. lockeres Gehen oder Schattenboxen',
-    'Scorpion Stretch — 30 Sek. pro Seite',
-    'Hip Circles — 10 × pro Seite',
+  ];
+  const cooldownTips=[
+    '5–10 Min. leichtes Schattenboxen / lockeres Gehen',
+    'Scorpion Stretch (30 Sek. pro Seite)',
+    'Hip Circles (10× pro Seite)',
+    'Pigeon Pose (30–45 Sek. pro Seite)',
     'Tiefer Ausfallschritt mit Torso-Rotation',
-    'Pigeon Pose — 30–45 Sek. pro Seite',
-]
-TIPS = [
-    'Trainiere niemals zwei Tage in Folge ohne Ruhetag bei 4+ Einheiten pro Woche.',
-    'Schlaf 7–9 Stunden. Ohne Erholung kein Wachstum.',
-    'Trinke 2–3 Liter Wasser täglich, mehr an intensiven Trainingstagen.',
-    'Wenn eine Übung brennt — weiter. Wenn es schmerzt — sofort stopp.',
-    'Progressive Überlastung: Sätze oder Wdh. alle 2 Wochen um ca. 10 % erhöhen.',
+  ];
+  const generalTips=[
+    'Trainiere niemals zwei Tage in Folge ohne Ruhetag bei 4+ Einheiten / Woche.',
+    'Schlaf (7–9 Std.) ist der wichtigste Wachstumsreiz. Vernachlässige ihn nicht.',
+    'Trinke mindestens 2–3 Liter Wasser täglich. Mehr an intensiven Trainingstagen.',
+    'Wenn eine Übung brennt – weiter. Wenn es schmerzt – sofort stopp.',
     'Führe nach jeder Einheit kurzes Protokoll: Was war gut? Was war schwer?',
-]
+    'Progressive Überlastung: Erhöhe Sätze oder Wdh. alle 2 Wochen um ~10%.',
+  ];
 
-# ── Page decorations ───────────────────────────────────────────
-def draw_bg(canvas, doc):
-    canvas.saveState()
-    canvas.setFillColor(BG)
-    canvas.rect(0, 0, W, H, fill=1, stroke=0)
-    # top accent line
-    canvas.setStrokeColor(GOLD)
-    canvas.setLineWidth(1)
-    canvas.line(20*mm, H - 14*mm, W - 20*mm, H - 14*mm)
-    # page number
-    if doc.page > 1:
-        canvas.setFont('Courier', 7)
-        canvas.setFillColor(MUTED)
-        canvas.drawRightString(W - 20*mm, 12*mm, f'Seite {doc.page}')
-        canvas.drawString(20*mm, 12*mm, 'KAMPFKRAFT – Trainingsplan')
-        canvas.line(20*mm, 14*mm, W - 20*mm, 14*mm)
-    canvas.restoreState()
+  // Build weekly schedule HTML
+  let weekHtml='';
 
-# ── PDF generator ──────────────────────────────────────────────
-def generate_pdf(data: dict) -> bytes:
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4,
-        leftMargin=20*mm, rightMargin=20*mm,
-        topMargin=22*mm, bottomMargin=22*mm)
+  // Show one sample week (repeated structure)
+  weekHtml+=`<div class="week-block"><div class="week-title">WÖCHENTLICHE STRUKTUR (wird über ${curPlan.duration} Wochen wiederholt)</div>`;
+  for(let d=0;d<7;d++){
+    const trainIdx=trainDays.indexOf(d);
+    const isTrainDay=trainIdx>=0;
+    weekHtml+=`<div class="day-row">
+      <div class="day-label">${DAY_NAMES[d]}</div>
+      <div class="day-exercises">`;
+    if(isTrainDay && dayGroups[trainIdx] && dayGroups[trainIdx].length){
+      dayGroups[trainIdx].forEach(item=>{
+        const ex=EXERCISES.find(x=>x.id===item.id);
+        if(ex) weekHtml+=`<div class="day-ex"><span class="day-ex-name">${ex.name}</span><span class="day-ex-sets">${item.sets} × ${item.reps}</span></div>`;
+      });
+    } else {
+      weekHtml+=`<div class="rest-day">🛌 Ruhetag – Aktive Erholung oder leichtes Dehnen</div>`;
+    }
+    weekHtml+=`</div></div>`;
+  }
+  weekHtml+=`</div>`;
 
-    S = make_styles()
-    story = []
+  // Phase blocks
+  let phaseHtml='<div class="week-block"><div class="week-title">PHASENPLAN ÜBER '+curPlan.duration+' WOCHEN</div>';
+  phases.forEach(ph=>{
+    phaseHtml+=`<div class="plan-ex-item" style="flex-direction:column;align-items:flex-start;padding:.9rem 1rem;margin-bottom:.5rem">
+      <div style="display:flex;justify-content:space-between;width:100%;margin-bottom:.4rem">
+        <span class="pex-name">Woche ${ph.weeks}: ${ph.label}</span>
+        <span class="day-ex-sets">Intensität ${ph.intensity}</span>
+      </div>
+      <span style="font-size:.8rem;color:var(--muted)">${ph.note}</span>
+    </div>`;
+  });
+  phaseHtml+='</div>';
 
-    name     = data.get('name', 'Trainingsplan')
-    level    = data.get('level', 'intermediate')
-    focus    = data.get('focus', 'mma')
-    days     = int(data.get('days', 3))
-    duration = int(data.get('duration', 6))
-    exercises = data.get('exercises', [])
+  // Warm-up block
+  let warmHtml=`<div class="plan-tips"><h3>Aufwärmen (vor jeder Einheit)</h3><ul>
+    ${warmupTips.map(t=>`<li>${t}</li>`).join('')}
+  </ul></div>`;
 
-    train_days, day_groups = build_schedule(exercises, days, duration)
-    phases = build_phases(duration)
+  // Cool-down block
+  let coolHtml=`<div class="plan-tips" style="margin-top:.9rem"><h3>Abkühlen (nach jeder Einheit)</h3><ul>
+    ${cooldownTips.map(t=>`<li>${t}</li>`).join('')}
+  </ul></div>`;
 
-    def hr(color=BORDER, thickness=0.5, space_before=8, space_after=8):
-        return HRFlowable(width='100%', thickness=thickness, color=color,
-                          spaceAfter=space_after, spaceBefore=space_before)
+  // General tips
+  let tipsHtml=`<div class="plan-tips" style="margin-top:.9rem"><h3>Allgemeine Trainingstipps</h3><ul>
+    ${generalTips.map(t=>`<li>${t}</li>`).join('')}
+  </ul></div>`;
 
-    # ── Cover ────────────────────────────────────────────────────
-    story.append(Spacer(1, 12*mm))
-    story.append(Paragraph('KAMPFKRAFT', ParagraphStyle('kk', fontSize=9, textColor=GOLD,
-        fontName='Courier-Bold', spaceAfter=8, letterSpacing=3)))
-    story.append(Paragraph(name, S['cover_title']))
-    story.append(Paragraph(f'{focus_label(focus)}  ·  {level_label(level)}  ·  {days} Tage / Woche  ·  {duration} Wochen', S['cover_sub']))
-    story.append(Paragraph(f'{len(exercises)} ÜBUNGEN  /  BODYWEIGHT TRAINING', S['cover_meta']))
-    story.append(hr(GOLD, 1, 16, 24))
+  const el=document.getElementById('plan-preview');
+  el.style.display='block';
+  el.innerHTML=`<div class="plan-preview">
+    <h2>${curPlan.name}</h2>
+    <div class="subtitle">${focusLabel} · ${lvlLabel(curPlan.level)} · ${curPlan.days} Tage/Woche · ${curPlan.duration} Wochen</div>
+    ${weekHtml}
+    ${phaseHtml}
+    ${warmHtml}
+    ${coolHtml}
+    ${tipsHtml}
+  </div>`;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+  notify('Trainingsplan generiert!');
+}
 
-    # ── Weekly schedule ───────────────────────────────────────────
-    story.append(Paragraph('WÖCHENTLICHE STRUKTUR', S['section_header']))
-    story.append(Paragraph(f'Die folgende Wocheneinteilung wird über {duration} Wochen wiederholt (Intensität variiert je Phase).', S['body']))
-    story.append(Spacer(1, 4))
+// ══════════════════════════════════════════════
+// PDF DOWNLOAD
+// ══════════════════════════════════════════════
+function downloadPlan(){
+  if(!curPlan.exercises.length){notify('Zuerst Übungen hinzufügen');return}
+  curPlan.name=document.getElementById('plan-name').value||'Mein Trainingsplan';
+  curPlan.level=document.getElementById('plan-level').value;
+  curPlan.focus=document.getElementById('plan-focus').value;
+  curPlan.days=parseInt(document.getElementById('plan-days').value);
+  curPlan.duration=parseInt(document.getElementById('plan-duration').value);
+  notify('PDF wird erstellt...');
 
-    for d in range(7):
-        train_idx = train_days.index(d) if d in train_days else -1
-        is_train = train_idx >= 0
+  // Send plan data to server endpoint
+  const payload={
+    name:curPlan.name,
+    level:curPlan.level,
+    focus:curPlan.focus,
+    days:curPlan.days,
+    duration:curPlan.duration,
+    exercises:curPlan.exercises.map(item=>{
+      const ex=EXERCISES.find(x=>x.id===item.id);
+      return ex?{name:ex.name,sets:item.sets,reps:item.reps,muscles:ex.muscles,steps:ex.steps,tip:ex.tip,cat:ex.cat,level:ex.level}:null;
+    }).filter(Boolean)
+  };
 
-        day_name = DAY_NAMES[d]
-        if is_train and train_idx < len(day_groups) and day_groups[train_idx]:
-            ex_rows = []
-            for item in day_groups[train_idx]:
-                ex_rows.append([
-                    Paragraph(item['name'], ParagraphStyle('en', fontSize=9, textColor=TEXT,
-                        fontName='Helvetica-Bold', leading=12)),
-                    Paragraph(f"{item['sets']}  ×  {item['reps']}", ParagraphStyle('er', fontSize=9,
-                        textColor=GOLD, fontName='Courier', leading=12, alignment=TA_RIGHT)),
-                ])
-            ex_table = Table(ex_rows, colWidths=[110*mm, 40*mm])
-            ex_table.setStyle(TableStyle([
-                ('BACKGROUND', (0,0),(-1,-1), SURFACE2),
-                ('ROWBACKGROUNDS', (0,0),(-1,-1), [SURFACE2, SURFACE]),
-                ('LEFTPADDING', (0,0),(-1,-1), 8),
-                ('RIGHTPADDING', (0,0),(-1,-1), 8),
-                ('TOPPADDING', (0,0),(-1,-1), 5),
-                ('BOTTOMPADDING', (0,0),(-1,-1), 5),
-                ('LINEBELOW', (0,0),(-1,-2), 0.3, BORDER),
-            ]))
-            row_data = [[
-                Paragraph(day_name, S['day_label']),
-                ex_table,
-            ]]
-        else:
-            row_data = [[
-                Paragraph(day_name, S['day_label']),
-                Paragraph('Ruhetag — Aktive Erholung oder leichtes Dehnen', S['day_rest']),
-            ]]
+  fetch('/generate-pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(r=>r.blob())
+    .then(blob=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;
+      a.download=`${curPlan.name.replace(/\s+/g,'-')}.pdf`;
+      a.click();URL.revokeObjectURL(url);
+      notify('PDF heruntergeladen!');
+    }).catch(()=>notify('PDF-Fehler – starte den lokalen Server'));
+}
 
-        row_table = Table(row_data, colWidths=[28*mm, 142*mm])
-        row_table.setStyle(TableStyle([
-            ('VALIGN', (0,0),(-1,-1), 'TOP'),
-            ('LEFTPADDING', (0,0),(0,-1), 0),
-            ('LEFTPADDING', (1,0),(1,-1), 8),
-            ('TOPPADDING', (0,0),(-1,-1), 4),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 4),
-            ('LINEBELOW', (0,0),(-1,-1), 0.3, BORDER),
-        ]))
-        story.append(row_table)
+// ══════════════════════════════════════════════
+// TIMER
+// ══════════════════════════════════════════════
+function tFmt(s){return`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}
+function timerUI(){
+  const el=document.getElementById('t-time'),ph=document.getElementById('t-phase'),ro=document.getElementById('t-round'),bar=document.getElementById('t-bar');
+  const pct=(timerState.currentTime/timerState.totalTime)*100;
+  bar.style.width=pct+'%';
+  el.textContent=tFmt(timerState.currentTime);
+  if(timerState.phase==='prep'){ph.textContent='VORBEREITUNG';el.className='timer-time';bar.style.background='var(--muted)';ro.textContent='Mach dich bereit'}
+  else if(timerState.phase==='work'){ph.textContent='RUNDE';el.className='timer-time';bar.style.background='var(--gold)';ro.textContent=`Runde ${timerState.currentRound} / ${timerState.totalRounds}`}
+  else if(timerState.phase==='rest'){ph.textContent='PAUSE';el.className='timer-time rest';bar.style.background='var(--green)';ro.textContent=`Runde ${timerState.currentRound} / ${timerState.totalRounds}`}
+  else{ph.textContent='FERTIG';el.className='timer-time rest';ro.textContent='Training abgeschlossen!';bar.style.width='100%'}
+}
+function timerNext(){
+  const r=parseInt(document.getElementById('cfg-rounds').value)||5;
+  const w=parseInt(document.getElementById('cfg-work').value)||180;
+  const rest=parseInt(document.getElementById('cfg-rest').value)||60;
+  if(timerState.phase==='prep'){timerState.phase='work';timerState.currentTime=w;timerState.totalTime=w}
+  else if(timerState.phase==='work'){
+    if(timerState.currentRound>=r){timerState.phase='done';timerState.currentTime=0;clearInterval(timerState.interval);timerState.running=false;document.getElementById('t-btn').textContent='Nochmal'}
+    else{timerState.phase='rest';timerState.currentTime=rest;timerState.totalTime=rest}
+  } else if(timerState.phase==='rest'){timerState.currentRound++;timerState.phase='work';timerState.currentTime=w;timerState.totalTime=w}
+}
+function timerToggle(){
+  const btn=document.getElementById('t-btn');
+  if(timerState.phase==='done'){timerReset();return}
+  if(timerState.running){clearInterval(timerState.interval);timerState.running=false;btn.textContent='Fortsetzen'}
+  else{timerState.running=true;btn.textContent='Pause';timerState.interval=setInterval(()=>{timerState.currentTime--;if(timerState.currentTime<=0)timerNext();timerUI()},1000)}
+}
+function timerSkip(){timerNext();timerUI()}
+function timerReset(){
+  clearInterval(timerState.interval);timerState.running=false;timerState.currentRound=1;timerState.phase='prep';
+  const prep=parseInt(document.getElementById('cfg-prep').value)||10;
+  timerState.currentTime=prep;timerState.totalTime=prep;timerState.totalRounds=parseInt(document.getElementById('cfg-rounds').value)||5;
+  document.getElementById('t-btn').textContent='Start';timerUI();
+}
+function timerInit(){timerReset()}
 
-    story.append(Spacer(1, 6))
+// ══════════════════════════════════════════════
+// PROGRESS
+// ══════════════════════════════════════════════
+function fillLogSelect(){
+  document.getElementById('log-exercise').innerHTML='<option value="">Übung wählen...</option>'+EXERCISES.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+}
+function logWorkout(){
+  const eid=parseInt(document.getElementById('log-exercise').value);
+  const sets=document.getElementById('log-sets').value;
+  const reps=document.getElementById('log-reps').value;
+  const note=document.getElementById('log-note').value;
+  if(!eid||!sets||!reps){notify('Bitte alle Felder ausfüllen');return}
+  const e=EXERCISES.find(x=>x.id===eid);
+  workoutLog.unshift({id:Date.now(),exercise:e.name,sets,reps,note,date:new Date().toISOString()});
+  localStorage.setItem('kk_log',JSON.stringify(workoutLog));
+  notify('Eingetragen!');
+  document.getElementById('log-sets').value='';document.getElementById('log-reps').value='';document.getElementById('log-note').value='';
+  renderProgress();
+}
+function renderProgress(){
+  fillLogSelect();
+  const logEl=document.getElementById('log-list');
+  logEl.innerHTML=workoutLog.length?workoutLog.slice(0,30).map(entry=>{
+    const d=new Date(entry.date);
+    return`<div class="log-item"><div style="flex:1"><div class="log-item-ex">${entry.exercise}</div><div class="log-item-meta">${entry.sets} Sätze × ${entry.reps}${entry.note?' · '+entry.note:''}</div></div><div class="log-item-date">${d.getDate()}.${d.getMonth()+1}</div></div>`;
+  }).join(''):'<div style="color:var(--muted);font-size:.8rem;padding:.8rem 0;text-align:center">Noch keine Einträge</div>';
 
-    # ── Phase plan ────────────────────────────────────────────────
-    story.append(hr(BORDER, 0.5, 12, 4))
-    story.append(Paragraph(f'PHASENPLAN ÜBER {duration} WOCHEN', S['section_header']))
+  const days=new Set(workoutLog.map(e=>e.date.slice(0,10)));
+  let streak=0,d=new Date();
+  while(days.has(d.toISOString().slice(0,10))){streak++;d.setDate(d.getDate()-1)}
+  document.getElementById('streak-num').textContent=streak;
 
-    for (weeks_str, ph_name, intensity, note) in phases:
-        ph_data = [[
-            Paragraph(f'{weeks_str}: {ph_name}', S['phase_title']),
-            Paragraph(intensity, ParagraphStyle('pi', fontSize=8, textColor=GOLD,
-                fontName='Courier', leading=11, alignment=TA_RIGHT)),
-        ],[
-            Paragraph(note, S['phase_body']),
-            Paragraph('', S['phase_body']),
-        ]]
-        ph_table = Table(ph_data, colWidths=[110*mm, 60*mm])
-        ph_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0),(-1,-1), SURFACE2),
-            ('SPAN', (0,1),(1,1)),
-            ('LEFTPADDING', (0,0),(-1,-1), 10),
-            ('RIGHTPADDING', (0,0),(-1,-1), 10),
-            ('TOPPADDING', (0,0),(-1,-1), 6),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 6),
-            ('LINEBELOW', (0,0),(-1,-1), 0.3, BORDER),
-        ]))
-        story.append(ph_table)
-        story.append(Spacer(1, 3))
+  const wg=document.getElementById('week-grid'),wl=document.getElementById('week-lbls');
+  const dn=['Mo','Di','Mi','Do','Fr','Sa','So'],today=new Date();
+  const mon=new Date(today);mon.setDate(today.getDate()-((today.getDay()+6)%7));
+  wg.innerHTML='';wl.innerHTML='';
+  for(let i=0;i<7;i++){
+    const day=new Date(mon);day.setDate(mon.getDate()+i);
+    const ds=day.toISOString().slice(0,10),hw=days.has(ds);
+    wg.innerHTML+=`<div class="week-day ${hw?'done':''}">${hw?'<div class="wday-dot"></div>':''}</div>`;
+    wl.innerHTML+=`<div class="wday-lbl">${dn[i]}</div>`;
+  }
 
-    # ── Warm-up & Cool-down ───────────────────────────────────────
-    story.append(hr(BORDER, 0.5, 12, 4))
-    wc_data = [
-        [Paragraph('AUFWÄRMEN', S['section_header']), Paragraph('ABKÜHLEN', S['section_header'])],
-        [
-            '\n'.join([f'→  {t}' for t in WARMUP]),
-            '\n'.join([f'→  {t}' for t in COOLDOWN]),
-        ]
-    ]
-    # Build as two columns
-    wu_items = [Paragraph(f'→  {t}', S['tip_item']) for t in WARMUP]
-    cd_items = [Paragraph(f'→  {t}', S['tip_item']) for t in COOLDOWN]
-    max_len = max(len(wu_items), len(cd_items))
-    while len(wu_items) < max_len: wu_items.append(Spacer(1,1))
-    while len(cd_items) < max_len: cd_items.append(Spacer(1,1))
+  const vc=document.getElementById('vol-chart'),vl=document.getElementById('vol-lbls');
+  vc.innerHTML='';vl.innerHTML='';
+  const vols=[];
+  for(let i=6;i>=0;i--){const dd=new Date(today);dd.setDate(today.getDate()-i);const ds=dd.toISOString().slice(0,10);vols.push({day:dn[(dd.getDay()+6)%7],count:workoutLog.filter(e=>e.date.slice(0,10)===ds).length})}
+  const maxV=Math.max(...vols.map(v=>v.count),1);
+  vols.forEach(v=>{const pct=Math.max((v.count/maxV)*100,v.count>0?10:4);vc.innerHTML+=`<div class="mini-bar ${v.count>0?'has':''}" style="height:${pct}%"></div>`;vl.innerHTML+=`<div class="mbl">${v.day}</div>`});
+}
 
-    wc_rows = [[Paragraph('AUFWÄRMEN (vor jeder Einheit)', S['section_header']),
-                Paragraph('ABKÜHLEN (nach jeder Einheit)', S['section_header'])]]
-    for wu, cd in zip(wu_items, cd_items):
-        wc_rows.append([wu, cd])
+// ══════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════
+let notifTimer;
+function notify(msg){
+  const n=document.getElementById('notif');n.textContent=msg;n.classList.add('show');
+  clearTimeout(notifTimer);notifTimer=setTimeout(()=>n.classList.remove('show'),2500);
+}
 
-    wc_table = Table(wc_rows, colWidths=[85*mm, 85*mm])
-    wc_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,1),(-1,-1), SURFACE2),
-        ('LEFTPADDING', (0,0),(-1,-1), 8),
-        ('RIGHTPADDING', (0,0),(-1,-1), 8),
-        ('TOPPADDING', (0,0),(-1,-1), 5),
-        ('BOTTOMPADDING', (0,0),(-1,-1), 5),
-        ('LINEAFTER', (0,0),(0,-1), 0.3, BORDER),
-        ('LINEBELOW', (0,0),(-1,-2), 0.3, BORDER),
-    ]))
-    story.append(wc_table)
-
-    # ── General tips ──────────────────────────────────────────────
-    story.append(hr(BORDER, 0.5, 12, 4))
-    story.append(Paragraph('ALLGEMEINE TRAININGSTIPPS', S['section_header']))
-    for tip in TIPS:
-        story.append(Paragraph(f'→  {tip}', S['tip_item']))
-
-    # ── Exercise reference (new page) ─────────────────────────────
-    story.append(hr(GOLD, 1, 20, 8))
-    story.append(Paragraph('ÜBUNGSREFERENZ', S['section_header']))
-    story.append(Paragraph('Detaillierte Anleitung zu allen Übungen in diesem Plan:', S['body']))
-    story.append(Spacer(1, 6))
-
-    for i, ex in enumerate(exercises):
-        ex_name  = ex.get('name','')
-        ex_sets  = ex.get('sets','')
-        ex_reps  = ex.get('reps','')
-        ex_desc  = ex.get('desc','') or ex.get('description','')
-        ex_steps = ex.get('steps',[])
-        ex_muscles = ex.get('muscles',[])
-        ex_tip   = ex.get('tip','')
-        ex_cat   = cat_label(ex.get('cat',''))
-        ex_level = level_label(ex.get('level',''))
-
-        block = []
-        # Header row
-        header_data = [[
-            Paragraph(ex_name, S['ex_title']),
-            Paragraph(f'{ex_level}  ·  {ex_cat}', ParagraphStyle('eh', fontSize=7,
-                textColor=GOLD, fontName='Courier', leading=11, alignment=TA_RIGHT)),
-        ]]
-        h_table = Table(header_data, colWidths=[110*mm, 60*mm])
-        h_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0),(-1,-1), SURFACE),
-            ('LINEBELOW', (0,0),(-1,-1), 1, GOLD),
-            ('LEFTPADDING', (0,0),(-1,-1), 10),
-            ('RIGHTPADDING', (0,0),(-1,-1), 10),
-            ('TOPPADDING', (0,0),(-1,-1), 8),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 6),
-            ('VALIGN', (0,0),(-1,-1), 'MIDDLE'),
-        ]))
-        block.append(h_table)
-
-        # Sets/reps info
-        sets_data = [[
-            Paragraph('SÄTZE', S['label']),
-            Paragraph('WDHL. / DAUER', S['label']),
-            Paragraph('MUSKELN', S['label']),
-        ],[
-            Paragraph(str(ex_sets), ParagraphStyle('sv', fontSize=10, textColor=TEXT,
-                fontName='Helvetica-Bold', leading=13)),
-            Paragraph(str(ex_reps), ParagraphStyle('rv', fontSize=10, textColor=TEXT,
-                fontName='Helvetica-Bold', leading=13)),
-            Paragraph(', '.join(ex_muscles[:4]) if ex_muscles else '—',
-                ParagraphStyle('mv', fontSize=8, textColor=MUTED, fontName='Helvetica', leading=11)),
-        ]]
-        s_table = Table(sets_data, colWidths=[35*mm, 55*mm, 80*mm])
-        s_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0),(-1,-1), SURFACE2),
-            ('LEFTPADDING', (0,0),(-1,-1), 10),
-            ('RIGHTPADDING', (0,0),(-1,-1), 10),
-            ('TOPPADDING', (0,0),(-1,-1), 5),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 5),
-            ('LINEBELOW', (0,0),(-1,-1), 0.3, BORDER),
-        ]))
-        block.append(s_table)
-
-        # Description
-        if ex_desc:
-            block.append(Table([[Paragraph(ex_desc, S['ex_desc'])]],
-                colWidths=[170*mm],
-                style=TableStyle([
-                    ('BACKGROUND',(0,0),(-1,-1), SURFACE2),
-                    ('LEFTPADDING',(0,0),(-1,-1), 10),
-                    ('RIGHTPADDING',(0,0),(-1,-1), 10),
-                    ('TOPPADDING',(0,0),(-1,-1), 4),
-                    ('BOTTOMPADDING',(0,0),(-1,-1), 4),
-                    ('LINEBELOW',(0,0),(-1,-1), 0.3, BORDER),
-                ])))
-
-        # Steps
-        if ex_steps:
-            block.append(Table([[Paragraph('AUSFÜHRUNG', S['label'])]], colWidths=[170*mm],
-                style=TableStyle([('BACKGROUND',(0,0),(-1,-1), SURFACE2),
-                    ('LEFTPADDING',(0,0),(-1,-1), 10),('TOPPADDING',(0,0),(-1,-1), 6),
-                    ('BOTTOMPADDING',(0,0),(-1,-1), 2)])))
-            for idx, step in enumerate(ex_steps):
-                step_data = [[
-                    Paragraph(f'{idx+1:02d}', S['step_num']),
-                    Paragraph(step, S['step']),
-                ]]
-                st = Table(step_data, colWidths=[12*mm, 158*mm])
-                st.setStyle(TableStyle([
-                    ('BACKGROUND',(0,0),(-1,-1), SURFACE2),
-                    ('LEFTPADDING',(0,0),(-1,-1), 10),
-                    ('RIGHTPADDING',(0,0),(-1,-1), 10),
-                    ('TOPPADDING',(0,0),(-1,-1), 3),
-                    ('BOTTOMPADDING',(0,0),(-1,-1), 3),
-                    ('LINEBELOW',(0,0),(-1,-1), 0.3, BORDER),
-                    ('VALIGN',(0,0),(-1,-1), 'TOP'),
-                ]))
-                block.append(st)
-
-        # Kampfsport-Tip
-        if ex_tip:
-            block.append(Table([[Paragraph(f'⚔  {ex_tip}', S['ex_tip'])]], colWidths=[170*mm],
-                style=TableStyle([
-                    ('BACKGROUND',(0,0),(-1,-1), colors.HexColor('#1a1800')),
-                    ('LEFTPADDING',(0,0),(-1,-1), 10),
-                    ('RIGHTPADDING',(0,0),(-1,-1), 10),
-                    ('TOPPADDING',(0,0),(-1,-1), 6),
-                    ('BOTTOMPADDING',(0,0),(-1,-1), 6),
-                    ('LINEAFTER',(0,0),(0,-1), 2, GOLD),
-                ])))
-
-        block.append(Spacer(1, 10))
-        story.append(KeepTogether(block))
-
-    doc.build(story, onFirstPage=draw_bg, onLaterPages=draw_bg)
-    return buf.getvalue()
-
-# ── HTTP server ────────────────────────────────────────────────
-class Handler(BaseHTTPRequestHandler):
-    def log_message(self, fmt, *args):
-        pass  # silence default logging
-
-    def do_GET(self):
-        if self.path == '/' or self.path == '/index.html':
-            self._serve_file('index.html', 'text/html; charset=utf-8')
-        else:
-            self.send_response(404); self.end_headers()
-
-    def do_POST(self):
-        if self.path == '/generate-pdf':
-            length = int(self.headers.get('Content-Length', 0))
-            body   = self.rfile.read(length)
-            try:
-                data = json.loads(body)
-                pdf  = generate_pdf(data)
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/pdf')
-                self.send_header('Content-Disposition', f'attachment; filename="trainingsplan.pdf"')
-                self.send_header('Content-Length', len(pdf))
-                self.end_headers()
-                self.wfile.write(pdf)
-            except Exception as e:
-                self.send_response(500)
-                self.send_header('Content-Type', 'text/plain')
-                self.end_headers()
-                self.wfile.write(str(e).encode())
-        else:
-            self.send_response(404); self.end_headers()
-
-    def _serve_file(self, path, ctype):
-        try:
-            with open(path, 'rb') as f:
-                content = f.read()
-            self.send_response(200)
-            self.send_header('Content-Type', ctype)
-            self.send_header('Content-Length', len(content))
-            self.end_headers()
-            self.wfile.write(content)
-        except FileNotFoundError:
-            self.send_response(404); self.end_headers()
-
-if __name__ == '__main__':
-    PORT = 8080
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    server = HTTPServer(('localhost', PORT), Handler)
-    print(f'KAMPFKRAFT läuft auf http://localhost:{PORT}')
-    print('Drücke Ctrl+C zum Beenden.')
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print('\nServer gestoppt.')
+// INIT
+timerInit();
+renderExercises();
+fillLogSelect();
+</script>
+</body>
+</html>
