@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KAMPFKRAFT – Bodyweight Training für Kampfsport</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --text: #f0ede8;
+    --text-muted: #7a7670;
+    --accent: #e8d5b0;
+    --accent2: #c4a96d;
+    --red: #c0392b;
+    --green: #4a7c59;
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --radius: 4px;
+    --transition: 200ms ease;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(14,14,14,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px;
+  }
+  .nav-logo {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .nav-links { display: flex; gap: 0.25rem; }
+  .nav-links button {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-family: var(--font-body);
+    font-size: 0.85rem; padding: 0.4rem 0.8rem;
+    border-radius: var(--radius);
+    transition: color var(--transition), background var(--transition);
+  }
+  .nav-links button:hover, .nav-links button.active {
+    color: var(--text); background: var(--surface2);
+  }
+
+  /* PAGES */
+  .page { display: none; padding-top: 56px; min-height: 100vh; }
+  .page.active { display: block; }
+
+  /* HERO */
+  .hero {
+    padding: 6rem 2rem 4rem;
+    max-width: 900px; margin: 0 auto;
+    animation: fadeUp 0.6s ease both;
+  }
+  .hero-tag {
+    font-family: var(--font-mono);
+    font-size: 0.72rem; color: var(--text-muted);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .hero-tag::before {
+    content: ''; display: block; width: 24px; height: 1px; background: var(--text-muted);
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-weight: 800; font-size: clamp(2.5rem, 6vw, 4.5rem);
+    line-height: 1.05; letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+  }
+  .hero h1 span { color: var(--accent2); }
+  .hero p {
+    color: var(--text-muted); max-width: 480px;
+    font-size: 1rem; line-height: 1.7;
+    margin-bottom: 2.5rem;
+  }
+  .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.65rem 1.4rem; border-radius: var(--radius);
+    font-family: var(--font-body); font-size: 0.875rem; font-weight: 500;
+    cursor: pointer; border: none; transition: all var(--transition);
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--accent); color: var(--bg);
+  }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-outline {
+    background: none; color: var(--text); border: 1px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn-sm { padding: 0.4rem 0.9rem; font-size: 0.8rem; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { opacity: 0.85; }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover { opacity: 0.85; }
+
+  /* STATS ROW */
+  .stats-row {
+    display: flex; gap: 2.5rem; flex-wrap: wrap;
+    padding: 2rem 2rem 3rem;
+    max-width: 900px; margin: 0 auto;
+    border-top: 1px solid var(--border);
+  }
+  .stat { display: flex; flex-direction: column; gap: 0.2rem; }
+  .stat-num {
+    font-family: var(--font-display); font-weight: 700; font-size: 1.6rem;
+    color: var(--accent2);
+  }
+  .stat-label { font-size: 0.78rem; color: var(--text-muted); letter-spacing: 0.05em; }
+
+  /* SECTION */
+  .section {
+    max-width: 1100px; margin: 0 auto; padding: 2rem 2rem 4rem;
+    animation: fadeUp 0.5s ease both;
+  }
+  .section-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 2rem; padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; gap: 0.75rem;
+  }
+  .section-title {
+    font-family: var(--font-display); font-weight: 700; font-size: 1.4rem;
+    letter-spacing: -0.01em;
+  }
+
+  /* FILTER BAR */
+  .filter-bar {
+    display: flex; gap: 0.4rem; flex-wrap: wrap;
+    margin-bottom: 1.75rem;
+  }
+  .filter-btn {
+    background: none; border: 1px solid var(--border);
+    color: var(--text-muted); font-family: var(--font-mono);
+    font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.35rem 0.75rem; border-radius: 2px;
+    cursor: pointer; transition: all var(--transition);
+  }
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--accent2); color: var(--accent2); background: rgba(196,169,109,0.07);
+  }
+
+  /* ÜBUNGS-GRID */
+  .exercise-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border);
+  }
+  .exercise-card {
+    background: var(--surface); padding: 1.5rem;
+    cursor: pointer; transition: background var(--transition);
+    position: relative; overflow: hidden;
+  }
+  .exercise-card:hover { background: var(--surface2); }
+  .exercise-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+    background: var(--accent2); transform: scaleY(0); transform-origin: bottom;
+    transition: transform var(--transition);
+  }
+  .exercise-card:hover::before { transform: scaleY(1); }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
+  .card-badges { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .badge {
+    font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 2px;
+  }
+  .badge-level-beginner { background: rgba(74,124,89,0.2); color: #6dbf84; }
+  .badge-level-intermediate { background: rgba(196,169,109,0.15); color: var(--accent2); }
+  .badge-level-advanced { background: rgba(192,57,43,0.15); color: #e07060; }
+  .badge-sport { background: rgba(240,237,232,0.07); color: var(--text-muted); }
+  .card-title {
+    font-family: var(--font-display); font-weight: 700; font-size: 1rem;
+    margin-bottom: 0.4rem;
+  }
+  .card-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
+  .card-meta {
+    margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border);
+    display: flex; gap: 1.25rem;
+  }
+  .card-meta-item { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+  .card-meta-item span { color: var(--text); display: block; font-size: 0.8rem; }
+  .add-to-plan-btn {
+    margin-top: 1rem; width: 100%; background: none;
+    border: 1px dashed var(--border); color: var(--text-muted);
+    font-family: var(--font-mono); font-size: 0.72rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.5rem; cursor: pointer; border-radius: var(--radius);
+    transition: all var(--transition);
+  }
+  .add-to-plan-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .modal-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    max-width: 560px; width: 100%; max-height: 85vh; overflow-y: auto;
+    border-radius: var(--radius);
+    animation: slideUp 0.25s ease;
+  }
+  .modal-header {
+    padding: 1.5rem; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .modal-header h2 { font-family: var(--font-display); font-weight: 700; font-size: 1.2rem; }
+  .modal-close {
+    background: none; border: none; color: var(--text-muted); font-size: 1.3rem;
+    cursor: pointer; padding: 0.1rem 0.4rem; line-height: 1;
+    transition: color var(--transition);
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 1.5rem; }
+  .modal-section { margin-bottom: 1.5rem; }
+  .modal-section h3 {
+    font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.6rem;
+  }
+  .modal-section p { font-size: 0.9rem; line-height: 1.7; color: var(--text-muted); }
+  .steps-list { list-style: none; }
+  .steps-list li {
+    padding: 0.6rem 0; border-bottom: 1px solid var(--border);
+    font-size: 0.875rem; line-height: 1.6; color: var(--text-muted);
+    display: flex; gap: 0.75rem;
+  }
+  .steps-list li:last-child { border-bottom: none; }
+  .step-num {
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent2);
+    min-width: 1.5rem; padding-top: 0.1rem;
+  }
+  .muscle-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .muscle-tag {
+    background: var(--surface2); border: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);
+    padding: 0.25rem 0.6rem; border-radius: 2px;
+  }
+  .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border); }
+
+  /* TRAININGSPLAN-BUILDER */
+  .builder-layout {
+    display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start;
+  }
+  @media (max-width: 768px) { .builder-layout { grid-template-columns: 1fr; } }
+  .builder-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .builder-panel-header {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .builder-panel-header h3 {
+    font-family: var(--font-display); font-weight: 700; font-size: 0.95rem;
+  }
+  .plan-name-input {
+    background: none; border: none; border-bottom: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-display); font-size: 1.1rem;
+    font-weight: 700; width: 100%; padding: 0.25rem 0; margin-bottom: 1rem;
+    outline: none; transition: border-color var(--transition);
+  }
+  .plan-name-input:focus { border-color: var(--accent2); }
+  .plan-meta-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;
+  }
+  .plan-meta-item { display: flex; flex-direction: column; gap: 0.25rem; }
+  .plan-meta-item label {
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .plan-meta-item select {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-body); font-size: 0.85rem;
+    padding: 0.4rem 0.6rem; border-radius: var(--radius); outline: none;
+    cursor: pointer; transition: border-color var(--transition);
+  }
+  .plan-meta-item select:focus { border-color: var(--accent2); }
+  .plan-exercises { padding: 0.75rem; min-height: 200px; }
+  .plan-exercise-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.75rem;
+    transition: border-color var(--transition);
+  }
+  .plan-exercise-item:hover { border-color: var(--border); }
+  .plan-exercise-num {
+    font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted);
+    min-width: 1.2rem; text-align: center;
+  }
+  .plan-exercise-info { flex: 1; }
+  .plan-exercise-name { font-size: 0.875rem; font-weight: 500; margin-bottom: 0.2rem; }
+  .plan-exercise-sets {
+    display: flex; gap: 0.5rem; margin-top: 0.4rem;
+  }
+  .sets-input {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-mono); font-size: 0.72rem;
+    width: 56px; padding: 0.2rem 0.4rem; border-radius: 2px; outline: none;
+    text-align: center;
+  }
+  .sets-input:focus { border-color: var(--accent2); }
+  .sets-label { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); padding-top: 0.2rem; }
+  .remove-btn {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    font-size: 1rem; padding: 0.2rem 0.4rem; transition: color var(--transition);
+    line-height: 1;
+  }
+  .remove-btn:hover { color: var(--red); }
+  .empty-plan {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 180px; color: var(--text-muted); gap: 0.5rem; text-align: center;
+  }
+  .empty-plan-icon { font-size: 2rem; opacity: 0.3; }
+  .empty-plan p { font-size: 0.82rem; }
+  .saved-plans-list { padding: 0.75rem; }
+  .saved-plan-item {
+    padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background var(--transition);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .saved-plan-item:last-child { border-bottom: none; }
+  .saved-plan-item:hover { background: var(--surface2); }
+  .saved-plan-name { font-size: 0.875rem; font-weight: 500; }
+  .saved-plan-meta { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; }
+  .saved-plan-actions { display: flex; gap: 0.4rem; }
+
+  /* TIMER */
+  .timer-section { max-width: 640px; margin: 0 auto; }
+  .timer-display {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 3rem 2rem;
+    text-align: center; margin-bottom: 1.5rem;
+    position: relative; overflow: hidden;
+  }
+  .timer-display::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center bottom, rgba(196,169,109,0.05) 0%, transparent 70%);
+  }
+  .timer-phase {
+    font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--accent2); margin-bottom: 0.75rem;
+  }
+  .timer-time {
+    font-family: var(--font-display); font-weight: 800;
+    font-size: clamp(4rem, 12vw, 7rem); letter-spacing: -0.04em;
+    line-height: 1; color: var(--text);
+    transition: color 0.3s ease;
+  }
+  .timer-time.rest-phase { color: var(--accent2); }
+  .timer-round {
+    font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted);
+    margin-top: 0.75rem; letter-spacing: 0.08em;
+  }
+  .timer-progress {
+    height: 2px; background: var(--border); margin-top: 1.5rem;
+    border-radius: 1px; overflow: hidden; position: relative; z-index: 1;
+  }
+  .timer-progress-bar {
+    height: 100%; background: var(--accent2); width: 100%;
+    transition: width 1s linear, background 0.3s ease;
+    border-radius: 1px;
+  }
+  .timer-controls { display: flex; gap: 0.75rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .timer-config {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.5rem;
+  }
+  .timer-config h3 {
+    font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-muted); margin-bottom: 1rem;
+  }
+  .timer-config-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  @media (max-width: 480px) { .timer-config-grid { grid-template-columns: 1fr 1fr; } }
+  .config-item { display: flex; flex-direction: column; gap: 0.3rem; }
+  .config-item label {
+    font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .config-item input {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-mono); font-size: 0.95rem;
+    font-weight: 500; text-align: center;
+    padding: 0.5rem; border-radius: var(--radius); outline: none;
+    transition: border-color var(--transition);
+  }
+  .config-item input:focus { border-color: var(--accent2); }
+
+  /* FORTSCHRITT */
+  .progress-layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+  }
+  @media (max-width: 640px) { .progress-layout { grid-template-columns: 1fr; } }
+  .progress-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem;
+  }
+  .progress-card h3 {
+    font-family: var(--font-display); font-weight: 700; font-size: 0.95rem;
+    margin-bottom: 1rem;
+  }
+  .log-entry-form { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; }
+  .log-input {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-body); font-size: 0.875rem;
+    padding: 0.5rem 0.75rem; border-radius: var(--radius); outline: none;
+    transition: border-color var(--transition);
+  }
+  .log-input:focus { border-color: var(--accent2); }
+  .log-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .log-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 320px; overflow-y: auto; }
+  .log-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.75rem 1rem;
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .log-item-info { flex: 1; }
+  .log-item-exercise { font-size: 0.875rem; font-weight: 500; margin-bottom: 0.15rem; }
+  .log-item-meta { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); }
+  .log-item-date { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
+  .streak-display { text-align: center; padding: 1rem 0; }
+  .streak-num {
+    font-family: var(--font-display); font-weight: 800; font-size: 3rem;
+    color: var(--accent2); line-height: 1;
+  }
+  .streak-label { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.1em; margin-top: 0.4rem; }
+  .week-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 1rem;
+  }
+  .week-day {
+    aspect-ratio: 1; border-radius: 2px;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted);
+    flex-direction: column; gap: 2px;
+  }
+  .week-day.has-workout { border-color: var(--accent2); background: rgba(196,169,109,0.1); }
+  .week-day .day-label { font-size: 0.58rem; }
+  .week-day .day-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent2); }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; } to { opacity: 1; }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse-border {
+    0%, 100% { border-color: var(--border); }
+    50% { border-color: var(--accent2); }
+  }
+
+  .plan-config-panel { padding: 1.25rem; border-bottom: 1px solid var(--border); }
+
+  /* Notification */
+  .notification {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 300;
+    background: var(--surface); border: 1px solid var(--accent2);
+    padding: 0.75rem 1.25rem; border-radius: var(--radius);
+    font-size: 0.85rem; color: var(--text);
+    animation: slideUp 0.25s ease;
+    display: none;
+  }
+  .notification.show { display: block; }
+
+  /* Volume bars mini chart */
+  .mini-chart { display: flex; gap: 3px; align-items: flex-end; height: 48px; margin-top: 0.75rem; }
+  .mini-bar {
+    flex: 1; background: var(--surface2); border-radius: 2px 2px 0 0;
+    border: 1px solid var(--border); border-bottom: none;
+    min-height: 4px;
+    transition: background var(--transition);
+  }
+  .mini-bar.active { background: rgba(196,169,109,0.4); border-color: var(--accent2); }
+  .mini-bar-labels { display: flex; gap: 3px; }
+  .mini-bar-label { flex: 1; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); text-align: center; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="#" onclick="return false">KAMPFKRAFT</a>
+  <div class="nav-links">
+    <button class="active" onclick="showPage('home')">Übersicht</button>
+    <button onclick="showPage('exercises')">Übungen</button>
+    <button onclick="showPage('builder')">Trainingsplan</button>
+    <button onclick="showPage('timer')">Timer</button>
+    <button onclick="showPage('progress')">Fortschritt</button>
+  </div>
+</nav>
+
+<!-- HOME PAGE -->
+<div id="page-home" class="page active">
+  <div class="hero">
+    <div class="hero-tag">Bodyweight Training für Kampfsport</div>
+    <h1>Kraft ohne<br><span>Geräte.</span><br>Technik ohne<br>Grenzen.</h1>
+    <p>Eine offene Plattform für MMA, Boxen, BJJ und Ringen. Baue deine eigenen Trainingspläne, verfolge deinen Fortschritt und trainiere smarter.</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary" onclick="showPage('exercises')">Übungen entdecken</button>
+      <button class="btn btn-outline" onclick="showPage('builder')">Plan erstellen</button>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num">34</div><div class="stat-label">Übungen</div></div>
+    <div class="stat"><div class="stat-num">3</div><div class="stat-label">Kampfsportarten</div></div>
+    <div class="stat"><div class="stat-num">3</div><div class="stat-label">Fitnesslevel</div></div>
+    <div class="stat"><div class="stat-num">∞</div><div class="stat-label">Mögliche Pläne</div></div>
+  </div>
+</div>
+
+<!-- EXERCISES PAGE -->
+<div id="page-exercises" class="page">
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Übungs-Bibliothek</div>
+    </div>
+    <div class="filter-bar" id="exercise-filters">
+      <button class="filter-btn active" data-filter="all">Alle</button>
+      <button class="filter-btn" data-filter="beginner">Anfänger</button>
+      <button class="filter-btn" data-filter="intermediate">Fortgeschritten</button>
+      <button class="filter-btn" data-filter="advanced">Profi</button>
+      <button class="filter-btn" data-filter="mma">MMA / Grappling</button>
+      <button class="filter-btn" data-filter="boxing">Boxen / Kickboxen</button>
+      <button class="filter-btn" data-filter="bjj">BJJ / Ringen</button>
+      <button class="filter-btn" data-filter="strength">Kraft</button>
+      <button class="filter-btn" data-filter="conditioning">Kondition</button>
+      <button class="filter-btn" data-filter="mobility">Beweglichkeit</button>
+    </div>
+    <div class="exercise-grid" id="exercise-grid"></div>
+  </div>
+</div>
+
+<!-- BUILDER PAGE -->
+<div id="page-builder" class="page">
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Trainingsplan-Builder</div>
+      <button class="btn btn-sm btn-outline" onclick="clearPlan()">Neuer Plan</button>
+    </div>
+    <div class="builder-layout">
+      <div>
+        <div class="builder-panel" style="margin-bottom:1.5rem">
+          <div class="plan-config-panel">
+            <input type="text" class="plan-name-input" id="plan-name" placeholder="Mein Trainingsplan..." value="Mein MMA-Grundlagenplan">
+            <div class="plan-meta-row">
+              <div class="plan-meta-item">
+                <label>Level</label>
+                <select id="plan-level">
+                  <option value="beginner">Anfänger</option>
+                  <option value="intermediate" selected>Fortgeschritten</option>
+                  <option value="advanced">Profi</option>
+                </select>
+              </div>
+              <div class="plan-meta-item">
+                <label>Fokus</label>
+                <select id="plan-focus">
+                  <option value="mma">MMA / Grappling</option>
+                  <option value="boxing">Boxen / Kickboxen</option>
+                  <option value="bjj">BJJ / Ringen</option>
+                  <option value="mixed">Gemischt</option>
+                </select>
+              </div>
+              <div class="plan-meta-item">
+                <label>Tage / Woche</label>
+                <select id="plan-days">
+                  <option value="2">2 Tage</option>
+                  <option value="3" selected>3 Tage</option>
+                  <option value="4">4 Tage</option>
+                  <option value="5">5 Tage</option>
+                </select>
+              </div>
+              <div class="plan-meta-item">
+                <label>Dauer (Wochen)</label>
+                <select id="plan-duration">
+                  <option value="4">4 Wochen</option>
+                  <option value="6" selected>6 Wochen</option>
+                  <option value="8">8 Wochen</option>
+                  <option value="12">12 Wochen</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="builder-panel-header">
+            <h3>Übungen im Plan</h3>
+            <span id="plan-count" style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)">0 Übungen</span>
+          </div>
+          <div class="plan-exercises" id="plan-exercises">
+            <div class="empty-plan">
+              <div class="empty-plan-icon">＋</div>
+              <p>Füge Übungen aus der Bibliothek hinzu</p>
+              <p style="font-size:0.75rem;opacity:0.6">Klicke auf "Zum Plan hinzufügen" bei einer Übung</p>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="savePlan()">Plan speichern</button>
+          <button class="btn btn-outline" onclick="showPage('exercises')">Übungen hinzufügen</button>
+        </div>
+      </div>
+      <div>
+        <div class="builder-panel">
+          <div class="builder-panel-header">
+            <h3>Gespeicherte Pläne</h3>
+            <span id="saved-count" style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)">0</span>
+          </div>
+          <div class="saved-plans-list" id="saved-plans-list">
+            <div style="padding:2rem 1rem;text-align:center;color:var(--text-muted);font-size:0.82rem">
+              Noch keine Pläne gespeichert
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TIMER PAGE -->
+<div id="page-timer" class="page">
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Intervall-Timer</div>
+    </div>
+    <div class="timer-section">
+      <div class="timer-display">
+        <div class="timer-phase" id="timer-phase">BEREIT</div>
+        <div class="timer-time" id="timer-time">03:00</div>
+        <div class="timer-round" id="timer-round">Runde 1 / 5</div>
+        <div class="timer-progress">
+          <div class="timer-progress-bar" id="timer-bar"></div>
+        </div>
+      </div>
+      <div class="timer-controls">
+        <button class="btn btn-primary" id="timer-start-btn" onclick="timerToggle()">Start</button>
+        <button class="btn btn-outline" onclick="timerReset()">Reset</button>
+        <button class="btn btn-outline" onclick="timerSkip()">Überspringen →</button>
+      </div>
+      <div class="timer-config">
+        <h3>Konfiguration</h3>
+        <div class="timer-config-grid">
+          <div class="config-item">
+            <label>Runden</label>
+            <input type="number" id="cfg-rounds" value="5" min="1" max="20" onchange="timerInit()">
+          </div>
+          <div class="config-item">
+            <label>Arbeitszeit (Sek)</label>
+            <input type="number" id="cfg-work" value="180" min="10" max="600" onchange="timerInit()">
+          </div>
+          <div class="config-item">
+            <label>Pause (Sek)</label>
+            <input type="number" id="cfg-rest" value="60" min="5" max="300" onchange="timerInit()">
+          </div>
+          <div class="config-item">
+            <label>Vorbereitung (Sek)</label>
+            <input type="number" id="cfg-prep" value="10" min="0" max="60" onchange="timerInit()">
+          </div>
+          <div class="config-item">
+            <label>Modus</label>
+            <select id="cfg-mode" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font-body);font-size:0.85rem;padding:0.5rem;border-radius:var(--radius);outline:none" onchange="timerInit()">
+              <option value="rounds">Runden</option>
+              <option value="tabata">Tabata</option>
+              <option value="amrap">AMRAP</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRESS PAGE -->
+<div id="page-progress" class="page">
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Fortschritt</div>
+    </div>
+    <div class="progress-layout">
+      <div>
+        <div class="progress-card" style="margin-bottom:1rem">
+          <h3>Training erfassen</h3>
+          <div class="log-entry-form">
+            <select class="log-input" id="log-exercise">
+              <option value="">Übung wählen...</option>
+            </select>
+            <div class="log-row">
+              <input type="number" class="log-input" id="log-sets" placeholder="Sätze" min="1" max="20">
+              <input type="number" class="log-input" id="log-reps" placeholder="Wdh. / Sek." min="1">
+            </div>
+            <input type="text" class="log-input" id="log-note" placeholder="Notiz (optional)">
+            <button class="btn btn-primary btn-sm" onclick="logWorkout()" style="align-self:flex-start">Eintragen</button>
+          </div>
+        </div>
+        <div class="progress-card">
+          <h3>Trainingsprotokoll</h3>
+          <div class="log-list" id="log-list">
+            <div style="color:var(--text-muted);font-size:0.82rem;padding:1rem 0;text-align:center">
+              Noch keine Einträge
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="progress-card" style="margin-bottom:1rem">
+          <h3>Wochenserie</h3>
+          <div class="streak-display">
+            <div class="streak-num" id="streak-num">0</div>
+            <div class="streak-label">TAGE IN FOLGE</div>
+          </div>
+          <div class="week-grid" id="week-grid"></div>
+          <div class="mini-bar-labels" id="week-labels" style="margin-top:4px"></div>
+        </div>
+        <div class="progress-card">
+          <h3>Trainingsvolumen (7 Tage)</h3>
+          <div class="mini-chart" id="volume-chart"></div>
+          <div class="mini-bar-labels" id="volume-labels"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div>
+        <div id="modal-badges" style="display:flex;gap:0.4rem;margin-bottom:0.5rem;flex-wrap:wrap"></div>
+        <h2 id="modal-title"></h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3>Beschreibung</h3>
+        <p id="modal-desc"></p>
+      </div>
+      <div class="modal-section" id="modal-steps-section">
+        <h3>Ausführung</h3>
+        <ul class="steps-list" id="modal-steps"></ul>
+      </div>
+      <div class="modal-section">
+        <h3>Trainierte Muskeln</h3>
+        <div class="muscle-tags" id="modal-muscles"></div>
+      </div>
+      <div class="modal-section" id="modal-tips-section">
+        <h3>Kampfsport-Relevanz</h3>
+        <p id="modal-tips" style="color:var(--accent2)"></p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" id="modal-add-btn" onclick="addCurrentToPlaner()">Zum Plan hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<div class="notification" id="notification"></div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const EXERCISES = [
+  // KRAFT – MMA / Grappling
+  {id:1, name:"Burpee",level:"intermediate",sport:["mma"],category:"conditioning",
+   desc:"Eine der effizientesten Ganzkörperübungen für Kampfsportler.",
+   steps:["Stehe aufrecht, Füße schulterbreit.","Beuge dich nach unten und platziere Hände neben den Füßen.","Springe in den Liegestütz.","Führe einen Liegestütz aus.","Springe zurück zu den Händen.","Springe explosiv hoch mit erhobenen Armen."],
+   muscles:["Brust","Schultern","Trizeps","Rumpf","Oberschenkel","Waden"],
+   sets:"3–5", reps:"10–15",
+   tip:"Burpees simulieren das Aufstehen nach einem Takedown und trainieren Explosivität für Takedown-Angriffe."},
+  {id:2, name:"Liegestütz",level:"beginner",sport:["mma","boxing","bjj"],category:"strength",
+   desc:"Der Klassiker für Oberkörperkraft – unverzichtbar für alle Kampfsportarten.",
+   steps:["Hochstütz: Hände schulterbreit, Körper gerade.","Senke langsam die Brust zum Boden.","Ellbogen 45° vom Körper halten.","Explosive Aufwärtsbewegung bis zur vollen Streckung."],
+   muscles:["Brust","Schultern","Trizeps","Rumpf"],
+   sets:"3–4", reps:"10–20",
+   tip:"Trainiert die Push-Kraft für Stöße und Abwehrtechniken im Standup."},
+  {id:3, name:"Explosive Liegestütz",level:"advanced",sport:["mma","boxing"],category:"strength",
+   desc:"Plyometrische Variante für maximale Oberkörper-Explosivität.",
+   steps:["Normale Liegestütz-Position einnehmen.","Senke dich schnell ab.","Explodiere so kraftvoll hoch, dass Hände vom Boden abheben.","Weich landen, sofort in nächste Wiederholung."],
+   muscles:["Brust","Schultern","Trizeps","Rumpf","Schnellkraftfasern"],
+   sets:"3–4", reps:"5–8",
+   tip:"Direkter Übertrag auf Abwehrkraft und Explosivstöße im Boxen."},
+  {id:4, name:"Dips (Bank / Stuhl)",level:"intermediate",sport:["mma","boxing"],category:"strength",
+   desc:"Trizeps- und Schulterstärke für kraftvolle Armarbeit.",
+   steps:["Sitze an einer Bank, Hände neben den Hüften.","Hebe dich an und gehe vom Rand der Bank.","Beuge Ellbogen auf 90°, Rücken nahe der Bank.","Strecke die Arme wieder durch."],
+   muscles:["Trizeps","Schultern","Brust"],
+   sets:"3", reps:"8–15",
+   tip:"Essentiell für die Push-Kraft in Clinch-Situationen und beim Abdrücken des Gegners."},
+  {id:5, name:"Pike-Liegestütz",level:"intermediate",sport:["mma","bjj"],category:"strength",
+   desc:"Schulterfokussierte Variante für Overhead-Kraft.",
+   steps:["Hochstütz, dann Hüfte hochheben (umgekehrtes V).","Oberkopf Richtung Boden senken.","Schultern hauptsächlich arbeiten lassen.","Zurück zur Ausgangsposition."],
+   muscles:["Schultern","Trizeps","obere Brust"],
+   sets:"3", reps:"8–12",
+   tip:"Stärkt die Schultern für Würgetechniken und Schulter-Clinch im Ringen."},
+  {id:6, name:"Kniebeugen",level:"beginner",sport:["mma","boxing","bjj"],category:"strength",
+   desc:"König der Unterkörperübungen – Basis für alle Kampfsportarten.",
+   steps:["Stehe mit Füßen schulterbreit, Zehen leicht nach außen.","Knie über die Zehen schieben, nicht nach innen fallen.","Oberschenkel mindestens parallel zum Boden.","Explosive Aufwärtsbewegung, Gesäß spannen oben."],
+   muscles:["Quadrizeps","Gesäß","Hamstrings","Waden","Rumpf"],
+   sets:"3–5", reps:"15–25",
+   tip:"Beingrundkraft für Stance & Footwork, Takedowns und Sprünge."},
+  {id:7, name:"Jump Squats",level:"intermediate",sport:["mma","boxing"],category:"conditioning",
+   desc:"Plyometrische Kniebeugen für explosive Beinkraft.",
+   steps:["Kniebeuge-Position einnehmen.","Explosiv abspringen, Arme schwingen mit.","Weich landen mit leicht gebeugten Knien.","Sofort in nächste Wiederholung."],
+   muscles:["Quadrizeps","Gesäß","Waden","Hüfte"],
+   sets:"3–4", reps:"10–15",
+   tip:"Explosivkraft für Levelchanges und Takedown-Antrieb."},
+  {id:8, name:"Ausfallschritte",level:"beginner",sport:["mma","boxing","bjj"],category:"strength",
+   desc:"Einseitige Beinarbeit für Stabilität und Kraft.",
+   steps:["Schritt nach vorne, Knie ca. 90° beugen.","Hinteres Knie fast den Boden berühren.","Rücken gerade, Kern angespannt.","Zurück in Startposition, Seite wechseln."],
+   muscles:["Quadrizeps","Gesäß","Hamstrings","Stabilisatoren"],
+   sets:"3", reps:"10 pro Seite",
+   tip:"Trainiert den einseitigen Antrieb für Footwork-Muster und Levelchange."},
+  {id:9, name:"Pistol Squat",level:"advanced",sport:["bjj","mma"],category:"strength",
+   desc:"Einbeinige Kniebeuge als Krafttest für fortgeschrittene Athleten.",
+   steps:["Auf einem Bein stehen, anderes Bein gestreckt nach vorne.","Langsam in die volle Hocke auf einem Bein absenken.","Ferse am Boden halten, Knie über Zehe.","Explosiv wieder hochkommen."],
+   muscles:["Quadrizeps","Gesäß","Knöchel","Rumpf"],
+   sets:"3", reps:"3–8 pro Seite",
+   tip:"Einseitige Stabilität für Guard-Arbeit und Hüft-Escapes am Boden."},
+  {id:10, name:"Klimmzüge",level:"intermediate",sport:["mma","bjj"],category:"strength",
+   desc:"Rücken- und Zugkraft – entscheidend für Clinch und Würgetechniken.",
+   steps:["Überkopfgriff an einer Stange, Hände etwas mehr als schulterbreit.","Ziehe dich hoch bis Kinn über der Stange.","Schulterblätter zusammenziehen in der oberen Position.","Langsam zurück zur Streckung."],
+   muscles:["Latissimus","Bizeps","hintere Schulter","Rumpf"],
+   sets:"3–4", reps:"5–12",
+   tip:"Zug-Kraft ist fundamental für Clinch-Kontrolle, Würgetechniken und Guard-Retention."},
+  {id:11, name:"Chin-Ups",level:"intermediate",sport:["bjj","mma"],category:"strength",
+   desc:"Untergriff-Variante mit mehr Bizeps-Beteiligung.",
+   steps:["Untergriff an der Stange, Hände schulterbreit.","Ziehe dich hoch, Ellbogen an den Körper.","Kinn über die Stange, Brust zur Stange.","Kontrolliert zurück."],
+   muscles:["Bizeps","Latissimus","Rumpf"],
+   sets:"3", reps:"5–10",
+   tip:"Bizepskraft für alle Grifftechniken, besonders im BJJ und Ringen."},
+  // KONDITION
+  {id:12, name:"Mountain Climbers",level:"beginner",sport:["mma","boxing","bjj"],category:"conditioning",
+   desc:"Herz-Kreislauf-Training und Rumpfstabilität in einer Übung.",
+   steps:["Hochstütz-Position einnehmen.","Abwechselnd Knie zur Brust ziehen.","Hüfte flach halten, keine Drehung.","Zügiges Tempo für Ausdauerwirkung."],
+   muscles:["Rumpf","Hüftbeuger","Schultern"],
+   sets:"3–4", reps:"30–60 Sek.",
+   tip:"Simuliert die dynamischen Bodenbewegungen im BJJ."},
+  {id:13, name:"Schattenboxen",level:"beginner",sport:["boxing","mma"],category:"conditioning",
+   desc:"Technik und Ausdauer kombiniert – der Grundstein des Boxens.",
+   steps:["Kampfhaltung einnehmen, Hände hoch.","Kombinationen flüssig werfen (Jab, Cross, Hook, Uppercut).","Konstante Fußarbeit, nie still stehen.","Intensität alle 30 Sek. variieren."],
+   muscles:["Schultern","Rumpf","Waden","Hüfte","Herz-Kreislauf"],
+   sets:"3–6", reps:"2–3 Min. Runden",
+   tip:"Das Schattenboxen ist die wichtigste Einzelübung für Boxer und MMA-Kämpfer."},
+  {id:14, name:"Box-Jumps",level:"intermediate",sport:["mma","boxing"],category:"conditioning",
+   desc:"Explosive Sprungkraft auf eine erhöhte Fläche.",
+   steps:["Stehe vor einem stabilen Kasten oder Stuhl.","Kniebeuge, dann explosiv auf die Box springen.","Weich landen, aufrechte Position.","Sicher heruntersteigen oder springen."],
+   muscles:["Gesäß","Quadrizeps","Waden","gesamte Unterkörper-Explosivkette"],
+   sets:"3–4", reps:"8–12",
+   tip:"Explosive Sprünge übertragen sich direkt auf Levelchanges und Kick-Kraft."},
+  {id:15, name:"Jumping Jacks",level:"beginner",sport:["mma","boxing","bjj"],category:"conditioning",
+   desc:"Klassisches Aufwärm- und Konditionierungsmittel.",
+   steps:["Aufrecht stehen, Arme an den Seiten.","Gleichzeitig Beine spreizen und Arme über Kopf.","Zurück zur Ausgangsposition.","Gleichmäßiges Tempo halten."],
+   muscles:["Waden","Schultern","Herz-Kreislauf"],
+   sets:"2–3", reps:"30–60 Sek.",
+   tip:"Ideal als Aufwärmen und für aktive Erholungstage."},
+  {id:16, name:"Bear Crawl",level:"intermediate",sport:["mma","bjj"],category:"conditioning",
+   desc:"Ganzkörperkondition auf allen Vieren – spezifisch für Bodenarbeit.",
+   steps:["Auf Händen und Füßen, Knie 5cm vom Boden.","Gleichzeitig rechte Hand und linkes Bein vorwärts.","Dann linke Hand und rechtes Bein.","Körper parallel zum Boden halten."],
+   muscles:["Schultern","Rumpf","Hüfte","Koordination"],
+   sets:"3", reps:"20–30m oder 30 Sek.",
+   tip:"Direkter Übertrag auf Positionswechsel und Scramble-Situationen im BJJ/MMA."},
+  {id:17, name:"Tuck Jumps",level:"intermediate",sport:["mma","boxing"],category:"conditioning",
+   desc:"Hochsprung mit Knie-Anzug für explosive Beinkraft.",
+   steps:["Aufrecht stehen.","Explosiv springen und beide Knie zur Brust ziehen.","Arme strecken seitlich für Balance.","Weich landen mit federnden Knien."],
+   muscles:["Hüftbeuger","Quadrizeps","Gesäß","Waden"],
+   sets:"3", reps:"10–15",
+   tip:"Entwickelt die explosive Beinpower für hohe Kicks."},
+  // RUMPF / CORE
+  {id:18, name:"Plank",level:"beginner",sport:["mma","boxing","bjj"],category:"strength",
+   desc:"Isometrische Rumpfstabilität – Fundament aller Bewegungen.",
+   steps:["Unterarmstütz oder Hochstütz.","Körper bildet eine gerade Linie von Kopf bis Fersen.","Gesäß nicht hochschieben.","Atmung gleichmäßig halten."],
+   muscles:["Rumpf","Schultern","Gesäß"],
+   sets:"3–5", reps:"30–90 Sek.",
+   tip:"Rumpfspannung ist die Voraussetzung für jeden effizienten Schlag und jede Takedown-Abwehr."},
+  {id:19, name:"Side Plank",level:"intermediate",sport:["bjj","mma"],category:"strength",
+   desc:"Laterale Rumpfstabilität für einseitige Stabilisierung.",
+   steps:["Seitliche Liegestützposition auf einem Unterarm.","Hüfte hochschieben, Körper gerade.","Freien Arm nach oben strecken.","Position halten oder Hüfte auf/ab bewegen."],
+   muscles:["Seitlicher Rumpf","Gesäß","Schultern"],
+   sets:"3", reps:"20–45 Sek. pro Seite",
+   tip:"Laterale Rumpfkraft für Hip-Escapes und Bridging am Boden."},
+  {id:20, name:"Hollow Body Hold",level:"intermediate",sport:["bjj","mma","boxing"],category:"strength",
+   desc:"Gymnastics-Übung für maximale Rumpfintegration.",
+   steps:["Auf dem Rücken liegen, Arme neben dem Kopf gestreckt.","Beine und Schultern gleichzeitig vom Boden heben.","Unterer Rücken bleibt am Boden.","Bananaförmige Körperspannung halten."],
+   muscles:["Hüftbeuger","Rumpf","Schultern","Quermuskel"],
+   sets:"3–4", reps:"20–45 Sek.",
+   tip:"Die ultimative Rumpfübung für effiziente Kraftübertragung."},
+  {id:21, name:"L-Sit Hold",level:"advanced",sport:["bjj","mma"],category:"strength",
+   desc:"Isometrisches Halten in der L-Position für extremen Rumpf und Hüftbeuger.",
+   steps:["Auf zwei Stühlen oder parallelen Stangen stützen.","Beine gerade nach vorne anheben (Winkel 90°).","Körper strecken, Schultern runterdrücken.","Position so lange wie möglich halten."],
+   muscles:["Hüftbeuger","Rumpf","Trizeps","Schultern"],
+   sets:"3–5", reps:"5–20 Sek.",
+   tip:"Extrem spezifisch für Guard-Retention und aktive Hüftkontrolle im BJJ."},
+  {id:22, name:"Sit-Ups (Kampfsport-Variation)",level:"beginner",sport:["mma","bjj"],category:"strength",
+   desc:"Klassische Bauchübung mit Kampfsport-Fokus.",
+   steps:["Auf dem Rücken, Knie gebeugt, Hände an den Schläfen.","Aufsetzen bis Ellbogen die Knie berühren.","Auf dem Weg runter Ellbogen nach außen führen wie beim Crunchen.","Langsam zurück, nicht fallen lassen."],
+   muscles:["Bauchmuskeln","Hüftbeuger"],
+   sets:"3–4", reps:"15–30",
+   tip:"Bauchkraft für Sit-ups aus ungünstigen Positionen und Bridging."},
+  // BEWEGLICHKEIT / MOBILITY
+  {id:23, name:"Hip Circles",level:"beginner",sport:["bjj","mma"],category:"mobility",
+   desc:"Hüftmobilität für tiefe Positionen und Bodenarbeit.",
+   steps:["Auf dem Rücken liegen oder Vierfüsslerstand.","Hüfte in großen Kreisen bewegen.","Beide Richtungen, langsam und kontrolliert.","Bereich der Einschränkung suchen und dort verweilen."],
+   muscles:["Hüftbeuger","Außenrotatoren","Leistenbereich"],
+   sets:"2–3", reps:"10–15 Kreise pro Seite",
+   tip:"Hüftmobilität ist entscheidend für Shooting, Guard-Arbeit und Leglock-Positionen."},
+  {id:24, name:"Shrimp (Garnele)",level:"intermediate",sport:["bjj"],category:"mobility",
+   desc:"Die fundamentale BJJ-Bodenbewegung für Guard-Arbeit und Escapes.",
+   steps:["Auf dem Rücken liegen.","Auf eine Seite rollen, unteres Knie hochziehen.","Hüfte seitlich wegdrücken, Ferse aufstoßen.","Oberkörper in die entgegengesetzte Richtung bewegen."],
+   muscles:["Hüfte","Gesäß","Rumpf"],
+   sets:"3", reps:"10–15m oder 20 Wdh.",
+   tip:"Die wichtigste Einzelbewegung für Guard-Retention und Escapes im BJJ."},
+  {id:25, name:"Bridge (Brücke)",level:"beginner",sport:["mma","bjj"],category:"mobility",
+   desc:"Hüft-Extension für Bridging-Escapes und Stärke der posterioren Kette.",
+   steps:["Auf dem Rücken, Knie gebeugt, Füße flach.","Hüfte explosiv hochdrücken, auf Schultern und Füßen.","Gesäß und Rumpf maximal anspannen.","Kontrolliert absenken."],
+   muscles:["Gesäß","Hamstrings","unterer Rücken"],
+   sets:"3", reps:"15–25 oder 30–60 Sek.",
+   tip:"Bridge-Bewegungen sind das A und O für Escapes aus Mount und Side Control."},
+  {id:26, name:"Kossack-Kniebeugen",level:"intermediate",sport:["bjj","mma"],category:"mobility",
+   desc:"Seitliche Kniebeugen für Leisten- und Hüftmobilität.",
+   steps:["Breiter Stand, Zehen leicht nach außen.","Auf eine Seite absenken, Knie über Zehe.","Andere Seite gestreckt auf dem Boden, Ferse unten.","Zwischen den Seiten wechseln."],
+   muscles:["Adduktoren","Hüftbeuger","Quadrizeps"],
+   sets:"2–3", reps:"8–12 pro Seite",
+   tip:"Leistenflexibilität ist entscheidend für Shooting und Leglock-Verteidigungen."},
+  {id:27, name:"Scorpion Stretch",level:"beginner",sport:["mma","bjj","boxing"],category:"mobility",
+   desc:"Thorax-Rotation und untere Rückenflexibilität.",
+   steps:["Auf dem Bauch liegen, Arme T-Position.","Rechtes Bein über linke Seite schwingen, Fuß berührt Boden.","Blick in entgegengesetzte Richtung.","Halten, dann Seite wechseln."],
+   muscles:["Wirbelsäulen-Rotatoren","Piriformis","Hüftbeuger"],
+   sets:"2", reps:"30–45 Sek. pro Seite",
+   tip:"Rumpfrotation ist die Quelle von Schlag- und Trittkraft."},
+  // BOXING / KICKBOXEN SPEZIFISCH
+  {id:28, name:"Shadow-Kicks",level:"beginner",sport:["boxing","mma"],category:"conditioning",
+   desc:"Tritt-Technik ohne Partner für Kondition und Technikentwicklung.",
+   steps:["Kampfhaltung einnehmen.","Verschiedene Tritte ausführen: Roundhouse, Front, Side Kick.","Jeder Tritt mit Fußarbeit und Kombination verbinden.","Volle Intensität, wie gegen einen Gegner."],
+   muscles:["Hüfte","Quadrizeps","Gesäß","Rumpf","Gleichgewicht"],
+   sets:"3–5", reps:"2 Min. Runden",
+   tip:"Schattentreten entwickelt Technik, Gleichgewicht und Tritt-Kondition gleichzeitig."},
+  {id:29, name:"Slip Rope Drill",level:"intermediate",sport:["boxing","mma"],category:"conditioning",
+   desc:"Ausweichbewegungen unter einer Linie für Defensiv-Kondition.",
+   steps:["Stelle dir eine Linie auf Schulternhöhe vor.","Bewege dich seitlich darunter durch mit ducken.","Hände schützend am Gesicht.","Kombination mit Gegenangriff nach dem Slip."],
+   muscles:["Beine","Rumpf","Schultern","Nacken"],
+   sets:"3", reps:"2 Min. Runden",
+   tip:"Head-Movement ist der Unterschied zwischen einem guten und einem großartigen Boxer."},
+  {id:30, name:"Footwork Drills",level:"beginner",sport:["boxing","mma"],category:"conditioning",
+   desc:"Grundlegende Fußarbeitsmuster für den Standup-Kampf.",
+   steps:["Kampfhaltung einnehmen.","Vorwärts/Rückwärts bewegen in Kampfhaltung.","Seitliche Schrittkombinationen.","Pivot-Bewegungen auf dem vorderen Fuß."],
+   muscles:["Waden","Oberschenkel","Gleichgewicht","Reaktion"],
+   sets:"3–4", reps:"2 Min. Runden",
+   tip:"Fußarbeit ist die Basis aller Standup-Kampfkünste – ohne gute Fußarbeit kein guter Kampfsport."},
+  // RINGEN / BJJ SPEZIFISCH
+  {id:31, name:"Wrestler Bridges",level:"intermediate",sport:["bjj","mma"],category:"strength",
+   desc:"Nacken-Stärkung und Bridging-Power für Escape-Situationen.",
+   steps:["Auf dem Rücken, Knie gebeugt.","Bridge in volle Hüfthöhe.","Auf Kopf rollen (Nacken stärken mit Vorsicht).","Alternativ: nur Schultern-Bridge ohne Kopf."],
+   muscles:["Nacken","Rücken","Gesäß","Rumpf"],
+   sets:"3", reps:"10–20",
+   tip:"Nackenstärke ist für Ringer und BJJ-Athleten überlebenswichtig."},
+  {id:32, name:"Granby Roll",level:"intermediate",sport:["bjj"],category:"mobility",
+   desc:"Rollbewegung auf Schultern für Guard-Recovery und Inversions.",
+   steps:["Auf dem Rücken, Beine gebeugt.","Auf eine Schulter rollen.","Hüfte hochheben und über die Schulter rollen.","Position umkehren."],
+   muscles:["Nacken","Rumpf","Schultern","Hüfte"],
+   sets:"3", reps:"10 pro Seite",
+   tip:"Fundamentale Fluchtbewegung aus Back-Takes und Turtle-Position."},
+  {id:33, name:"Penetration Step",level:"intermediate",sport:["bjj","mma"],category:"conditioning",
+   desc:"Das Shooting-Beinmuster für Takedowns.",
+   steps:["Aufrechter Stand, Kampfhaltung.","Voranbewegen mit niedrigem Levelchange.","Vorderes Knie auf den Boden (Lead-Knie).","Zurück in Stand – Explosivität trainieren."],
+   muscles:["Quadrizeps","Hüftbeuger","Gesäß"],
+   sets:"3–4", reps:"10–15 pro Seite",
+   tip:"Der Penetration Step ist der Motor jedes Takedowns – täglich zu trainieren."},
+  {id:34, name:"Neck Bridges",level:"advanced",sport:["bjj","mma"],category:"strength",
+   desc:"Nacken-Kräftigung für Ringer und BJJ-Kämpfer.",
+   steps:["Vorsichtig! Auf dem Rücken, Hände neben dem Kopf.","Auf Kopf rollen, Körper gewölbt.","Sehr langsam, keine ruckartigen Bewegungen.","Nur für geübte Athleten."],
+   muscles:["Nacken","Trapez","oberer Rücken"],
+   sets:"2–3", reps:"5–10",
+   tip:"Ein starker Nacken verhindert Strangulation und schützt vor Würgetechnik-Druck."},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let currentFilter = 'all';
+let currentPlan = { name:'', level:'intermediate', focus:'mma', days:3, duration:6, exercises:[] };
+let savedPlans = JSON.parse(localStorage.getItem('kk_plans') || '[]');
+let workoutLog = JSON.parse(localStorage.getItem('kk_log') || '[]');
+let modalExercise = null;
+
+// Timer state
+let timerState = {
+  running: false, interval: null,
+  totalRounds: 5, currentRound: 1,
+  workTime: 180, restTime: 60, prepTime: 10,
+  currentTime: 10, phase: 'prep', // prep | work | rest | done
+  totalTime: 10
+};
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const btns = document.querySelectorAll('.nav-links button');
+  const pages = ['home','exercises','builder','timer','progress'];
+  const idx = pages.indexOf(id);
+  if(idx >= 0) btns[idx].classList.add('active');
+  if(id === 'exercises') renderExercises();
+  if(id === 'builder') renderBuilder();
+  if(id === 'progress') renderProgress();
+}
+
+// ============================================================
+// EXERCISES
+// ============================================================
+function renderExercises() {
+  const grid = document.getElementById('exercise-grid');
+  const filtered = currentFilter === 'all' ? EXERCISES : EXERCISES.filter(e =>
+    e.level === currentFilter || e.sport.includes(currentFilter) || e.category === currentFilter
+  );
+  grid.innerHTML = filtered.map(e => `
+    <div class="exercise-card" onclick="openModal(${e.id})">
+      <div class="card-top">
+        <div class="card-badges">
+          <span class="badge badge-level-${e.level}">${levelLabel(e.level)}</span>
+          ${e.sport.map(s=>`<span class="badge badge-sport">${sportLabel(s)}</span>`).join('')}
+          <span class="badge badge-sport">${catLabel(e.category)}</span>
+        </div>
+      </div>
+      <div class="card-title">${e.name}</div>
+      <div class="card-desc">${e.desc}</div>
+      <div class="card-meta">
+        <div class="card-meta-item">Sätze<span>${e.sets}</span></div>
+        <div class="card-meta-item">Wdh.<span>${e.reps}</span></div>
+      </div>
+      <button class="add-to-plan-btn" onclick="event.stopPropagation();quickAddToPlan(${e.id})">+ Zum Plan hinzufügen</button>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('#exercise-filters .filter-btn').forEach(btn => {
+    btn.onclick = () => {
+      currentFilter = btn.dataset.filter;
+      document.querySelectorAll('#exercise-filters .filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderExercises();
+    };
+  });
+}
+
+function levelLabel(l) { return {beginner:'Anfänger',intermediate:'Fortgeschritten',advanced:'Profi'}[l]||l; }
+function sportLabel(s) { return {mma:'MMA',boxing:'Boxen',bjj:'BJJ'}[s]||s; }
+function catLabel(c) { return {strength:'Kraft',conditioning:'Kondition',mobility:'Mobilität'}[c]||c; }
+
+// ============================================================
+// MODAL
+// ============================================================
+function openModal(id) {
+  const e = EXERCISES.find(x=>x.id===id);
+  if(!e) return;
+  modalExercise = e;
+  document.getElementById('modal-title').textContent = e.name;
+  document.getElementById('modal-desc').textContent = e.desc;
+  document.getElementById('modal-tips').textContent = e.tip;
+  document.getElementById('modal-badges').innerHTML =
+    `<span class="badge badge-level-${e.level}">${levelLabel(e.level)}</span>` +
+    e.sport.map(s=>`<span class="badge badge-sport">${sportLabel(s)}</span>`).join('') +
+    `<span class="badge badge-sport">${catLabel(e.category)}</span>`;
+  document.getElementById('modal-steps').innerHTML = e.steps.map((s,i) =>
+    `<li><span class="step-num">${String(i+1).padStart(2,'0')}</span><span>${s}</span></li>`
+  ).join('');
+  document.getElementById('modal-muscles').innerHTML = e.muscles.map(m =>
+    `<span class="muscle-tag">${m}</span>`
+  ).join('');
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if(!e || e.target === document.getElementById('modal-overlay'))
+    document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function addCurrentToPlaner() {
+  if(modalExercise) { quickAddToPlan(modalExercise.id); closeModal(); }
+}
+
+function quickAddToPlan(id) {
+  const e = EXERCISES.find(x=>x.id===id);
+  if(!e) return;
+  if(currentPlan.exercises.find(x=>x.id===id)) {
+    notify(`"${e.name}" bereits im Plan`); return;
+  }
+  currentPlan.exercises.push({id, sets:e.sets, reps:e.reps});
+  notify(`"${e.name}" zum Plan hinzugefügt`);
+  if(document.getElementById('page-builder').classList.contains('active')) renderBuilder();
+}
+
+// ============================================================
+// BUILDER
+// ============================================================
+function renderBuilder() {
+  const container = document.getElementById('plan-exercises');
+  const countEl = document.getElementById('plan-count');
+  countEl.textContent = `${currentPlan.exercises.length} Übungen`;
+
+  if(currentPlan.exercises.length === 0) {
+    container.innerHTML = `<div class="empty-plan"><div class="empty-plan-icon">＋</div><p>Füge Übungen aus der Bibliothek hinzu</p><p style="font-size:0.75rem;opacity:0.6">Klicke auf "Zum Plan hinzufügen" bei einer Übung</p></div>`;
+  } else {
+    container.innerHTML = currentPlan.exercises.map((item,i) => {
+      const e = EXERCISES.find(x=>x.id===item.id);
+      return `<div class="plan-exercise-item">
+        <div class="plan-exercise-num">${String(i+1).padStart(2,'0')}</div>
+        <div class="plan-exercise-info">
+          <div class="plan-exercise-name">${e?e.name:'Unbekannt'}</div>
+          <div class="plan-exercise-sets">
+            <input type="text" class="sets-input" value="${item.sets}" oninput="updateSets(${i},'sets',this.value)" placeholder="Sätze">
+            <span class="sets-label">×</span>
+            <input type="text" class="sets-input" value="${item.reps}" oninput="updateSets(${i},'reps',this.value)" placeholder="Wdh.">
+          </div>
+        </div>
+        <button class="remove-btn" onclick="removeFromPlan(${i})">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  // Saved plans
+  const savedEl = document.getElementById('saved-plans-list');
+  document.getElementById('saved-count').textContent = savedPlans.length;
+  if(savedPlans.length === 0) {
+    savedEl.innerHTML = '<div style="padding:2rem 1rem;text-align:center;color:var(--text-muted);font-size:0.82rem">Noch keine Pläne gespeichert</div>';
+  } else {
+    savedEl.innerHTML = savedPlans.map((p,i) => `
+      <div class="saved-plan-item">
+        <div onclick="loadPlan(${i})" style="flex:1">
+          <div class="saved-plan-name">${p.name || 'Unbenannter Plan'}</div>
+          <div class="saved-plan-meta">${p.exercises.length} Übungen · ${p.days} Tage/Woche · ${p.duration} Wochen</div>
+        </div>
+        <div class="saved-plan-actions">
+          <button class="btn btn-sm btn-outline" onclick="loadPlan(${i})">Laden</button>
+          <button class="btn btn-sm btn-danger" onclick="deletePlan(${i})">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function updateSets(i, key, val) { currentPlan.exercises[i][key] = val; }
+function removeFromPlan(i) { currentPlan.exercises.splice(i,1); renderBuilder(); }
+function clearPlan() { currentPlan = {name:'',level:'intermediate',focus:'mma',days:3,duration:6,exercises:[]}; document.getElementById('plan-name').value=''; renderBuilder(); }
+
+function savePlan() {
+  const name = document.getElementById('plan-name').value || 'Unbenannter Plan';
+  const level = document.getElementById('plan-level').value;
+  const focus = document.getElementById('plan-focus').value;
+  const days = parseInt(document.getElementById('plan-days').value);
+  const duration = parseInt(document.getElementById('plan-duration').value);
+  if(currentPlan.exercises.length === 0) { notify('Plan hat keine Übungen'); return; }
+  currentPlan.name = name; currentPlan.level = level; currentPlan.focus = focus;
+  currentPlan.days = days; currentPlan.duration = duration;
+  savedPlans.unshift({...currentPlan, exercises:[...currentPlan.exercises], savedAt: new Date().toISOString()});
+  localStorage.setItem('kk_plans', JSON.stringify(savedPlans));
+  notify(`"${name}" gespeichert`);
+  renderBuilder();
+}
+
+function loadPlan(i) {
+  currentPlan = {...savedPlans[i], exercises:[...savedPlans[i].exercises]};
+  document.getElementById('plan-name').value = currentPlan.name;
+  document.getElementById('plan-level').value = currentPlan.level;
+  document.getElementById('plan-focus').value = currentPlan.focus;
+  document.getElementById('plan-days').value = currentPlan.days;
+  document.getElementById('plan-duration').value = currentPlan.duration;
+  renderBuilder();
+  notify(`"${currentPlan.name}" geladen`);
+}
+
+function deletePlan(i) {
+  const name = savedPlans[i].name;
+  savedPlans.splice(i,1);
+  localStorage.setItem('kk_plans', JSON.stringify(savedPlans));
+  notify(`"${name}" gelöscht`);
+  renderBuilder();
+}
+
+// ============================================================
+// TIMER
+// ============================================================
+function timerInit() {
+  timerReset();
+}
+
+function timerFormat(sec) {
+  const m = Math.floor(sec/60);
+  const s = sec%60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function timerUpdateUI() {
+  const el = document.getElementById('timer-time');
+  const phaseEl = document.getElementById('timer-phase');
+  const roundEl = document.getElementById('timer-round');
+  const bar = document.getElementById('timer-bar');
+  const mode = document.getElementById('cfg-mode').value;
+
+  el.textContent = timerFormat(timerState.currentTime);
+  const pct = (timerState.currentTime / timerState.totalTime) * 100;
+  bar.style.width = pct + '%';
+
+  if(timerState.phase === 'prep') {
+    phaseEl.textContent = 'VORBEREITUNG';
+    el.className = 'timer-time';
+    bar.style.background = 'var(--text-muted)';
+    roundEl.textContent = `Bereit machen`;
+  } else if(timerState.phase === 'work') {
+    const modeLabel = mode === 'tabata' ? 'ARBEIT' : mode === 'amrap' ? 'AMRAP' : 'RUNDE';
+    phaseEl.textContent = modeLabel;
+    el.className = 'timer-time';
+    bar.style.background = 'var(--accent2)';
+    roundEl.textContent = `Runde ${timerState.currentRound} / ${timerState.totalRounds}`;
+  } else if(timerState.phase === 'rest') {
+    phaseEl.textContent = 'PAUSE';
+    el.className = 'timer-time rest-phase';
+    bar.style.background = 'var(--green)';
+    roundEl.textContent = `Runde ${timerState.currentRound} / ${timerState.totalRounds}`;
+  } else {
+    phaseEl.textContent = 'FERTIG';
+    el.className = 'timer-time rest-phase';
+    roundEl.textContent = `Training abgeschlossen!`;
+    bar.style.width = '100%';
+  }
+}
+
+function timerToggle() {
+  const btn = document.getElementById('timer-start-btn');
+  if(timerState.phase === 'done') { timerReset(); return; }
+  if(timerState.running) {
+    clearInterval(timerState.interval);
+    timerState.running = false;
+    btn.textContent = 'Fortsetzen';
+  } else {
+    timerState.running = true;
+    btn.textContent = 'Pause';
+    timerState.interval = setInterval(() => {
+      timerState.currentTime--;
+      if(timerState.currentTime <= 0) {
+        timerNext();
+      }
+      timerUpdateUI();
+    }, 1000);
+  }
+}
+
+function timerNext() {
+  const rounds = parseInt(document.getElementById('cfg-rounds').value) || 5;
+  const work = parseInt(document.getElementById('cfg-work').value) || 180;
+  const rest = parseInt(document.getElementById('cfg-rest').value) || 60;
+
+  if(timerState.phase === 'prep') {
+    timerState.phase = 'work';
+    timerState.currentTime = work;
+    timerState.totalTime = work;
+  } else if(timerState.phase === 'work') {
+    if(timerState.currentRound >= rounds) {
+      timerState.phase = 'done';
+      timerState.currentTime = 0;
+      clearInterval(timerState.interval);
+      timerState.running = false;
+      document.getElementById('timer-start-btn').textContent = 'Nochmal';
+    } else {
+      timerState.phase = 'rest';
+      timerState.currentTime = rest;
+      timerState.totalTime = rest;
+    }
+  } else if(timerState.phase === 'rest') {
+    timerState.currentRound++;
+    timerState.phase = 'work';
+    timerState.currentTime = work;
+    timerState.totalTime = work;
+  }
+}
+
+function timerSkip() { timerNext(); timerUpdateUI(); }
+
+function timerReset() {
+  clearInterval(timerState.interval);
+  timerState.running = false;
+  timerState.currentRound = 1;
+  timerState.phase = 'prep';
+  const prep = parseInt(document.getElementById('cfg-prep').value) || 10;
+  timerState.currentTime = prep;
+  timerState.totalTime = prep;
+  timerState.totalRounds = parseInt(document.getElementById('cfg-rounds').value) || 5;
+  document.getElementById('timer-start-btn').textContent = 'Start';
+  timerUpdateUI();
+}
+
+// ============================================================
+// PROGRESS
+// ============================================================
+function populateExerciseSelect() {
+  const sel = document.getElementById('log-exercise');
+  sel.innerHTML = '<option value="">Übung wählen...</option>' +
+    EXERCISES.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+function logWorkout() {
+  const eid = parseInt(document.getElementById('log-exercise').value);
+  const sets = document.getElementById('log-sets').value;
+  const reps = document.getElementById('log-reps').value;
+  const note = document.getElementById('log-note').value;
+  if(!eid || !sets || !reps) { notify('Bitte alle Felder ausfüllen'); return; }
+  const e = EXERCISES.find(x=>x.id===eid);
+  const entry = { id: Date.now(), exercise: e.name, sets, reps, note, date: new Date().toISOString() };
+  workoutLog.unshift(entry);
+  localStorage.setItem('kk_log', JSON.stringify(workoutLog));
+  notify('Training eingetragen!');
+  document.getElementById('log-sets').value = '';
+  document.getElementById('log-reps').value = '';
+  document.getElementById('log-note').value = '';
+  renderProgress();
+}
+
+function renderProgress() {
+  populateExerciseSelect();
+
+  // Log list
+  const logEl = document.getElementById('log-list');
+  if(workoutLog.length === 0) {
+    logEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:1rem 0;text-align:center">Noch keine Einträge</div>';
+  } else {
+    logEl.innerHTML = workoutLog.slice(0,30).map(entry => {
+      const d = new Date(entry.date);
+      const dateStr = `${d.getDate()}.${d.getMonth()+1}.${String(d.getFullYear()).slice(-2)}`;
+      return `<div class="log-item">
+        <div class="log-item-info">
+          <div class="log-item-exercise">${entry.exercise}</div>
+          <div class="log-item-meta">${entry.sets} Sätze × ${entry.reps} Wdh.${entry.note?' · '+entry.note:''}</div>
+        </div>
+        <div class="log-item-date">${dateStr}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Streak
+  const days = new Set(workoutLog.map(e => e.date.slice(0,10)));
+  let streak = 0;
+  let d = new Date();
+  while(days.has(d.toISOString().slice(0,10))) {
+    streak++; d.setDate(d.getDate()-1);
+  }
+  document.getElementById('streak-num').textContent = streak;
+
+  // Week grid
+  const weekGrid = document.getElementById('week-grid');
+  const weekLabels = document.getElementById('week-labels');
+  const dayNames = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+  const today = new Date();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay()+6)%7));
+  weekGrid.innerHTML = '';
+  weekLabels.innerHTML = '';
+  for(let i=0;i<7;i++) {
+    const day = new Date(monday); day.setDate(monday.getDate()+i);
+    const ds = day.toISOString().slice(0,10);
+    const hasW = days.has(ds);
+    weekGrid.innerHTML += `<div class="week-day ${hasW?'has-workout':''}">
+      ${hasW?'<div class="day-dot"></div>':''}
+    </div>`;
+    weekLabels.innerHTML += `<div class="mini-bar-label">${dayNames[i]}</div>`;
+  }
+
+  // Volume chart (last 7 days)
+  const chartEl = document.getElementById('volume-chart');
+  const chartLabels = document.getElementById('volume-labels');
+  chartEl.innerHTML = '';
+  chartLabels.innerHTML = '';
+  const vols = [];
+  for(let i=6;i>=0;i--) {
+    const dd = new Date(today); dd.setDate(today.getDate()-i);
+    const ds = dd.toISOString().slice(0,10);
+    const count = workoutLog.filter(e=>e.date.slice(0,10)===ds).length;
+    vols.push({day:dayNames[(dd.getDay()+6)%7], count});
+  }
+  const maxV = Math.max(...vols.map(v=>v.count), 1);
+  vols.forEach(v => {
+    const pct = Math.max((v.count/maxV)*100, v.count>0?8:4);
+    chartEl.innerHTML += `<div class="mini-bar ${v.count>0?'active':''}" style="height:${pct}%"></div>`;
+    chartLabels.innerHTML += `<div class="mini-bar-label">${v.day}</div>`;
+  });
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function notify(msg) {
+  const n = document.getElementById('notification');
+  n.textContent = msg; n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+timerInit();
+renderExercises();
+populateExerciseSelect();
+</script>
+</body>
+</html>
